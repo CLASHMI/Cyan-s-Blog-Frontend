@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cyan's Blog</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <!-- 字体：拉丁 Inter / 中文正文思源黑体系 / 中文标题思源宋体系 / 等宽 JetBrains Mono。
+         中文字体按 unicode-range 分片，只取用到的子集；CSS 用 media 切换异步加载，
+         不阻塞首屏（字体没到位时先用系统字体渲染，到位后自动替换）。 -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="stylesheet" media="print" onload="this.media='all'" fetchpriority="low"
+        href="https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5/index.css">
+    <link rel="stylesheet" media="print" onload="this.media='all'" fetchpriority="low"
+        href="https://cdn.jsdelivr.net/npm/@fontsource-variable/noto-sans-sc@5/index.css">
+    <link rel="stylesheet" media="print" onload="this.media='all'" fetchpriority="low"
+        href="https://cdn.jsdelivr.net/npm/@fontsource-variable/noto-serif-sc@5/index.css">
+    <link rel="stylesheet" media="print" onload="this.media='all'" fetchpriority="low"
+        href="https://cdn.jsdelivr.net/npm/@fontsource-variable/jetbrains-mono@5/index.css">
+    <!-- 长文本阅读字体：霞鹜文楷（仅正文使用，400 字重、97 个 unicode-range 子集按需加载） -->
+    <link rel="stylesheet" media="print" onload="this.media='all'" fetchpriority="low"
+        href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/lxgwwenkai-regular.css">
+    <script defer src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- 网易云音乐播放器：APlayer + MetingJS 走 CDN（不进打包，避免依赖报错）。
+         CSS 用 media=print 异步化、JS 用 defer，都不阻塞首屏；
+         真正会发网络请求的 <meting-js> 只在用户首次点开播放器时才创建（见 App.vue）。 -->
+    <link rel="stylesheet" media="print" onload="this.media='all'" fetchpriority="low"
+        href="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/meting@2.0.1/dist/Meting.min.js"></script>
+</head>
+
+<body class="antialiased art-body">
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>

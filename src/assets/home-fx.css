@@ -1,0 +1,612 @@
+/* ============================================================
+   首页视觉升级：标题 / 数据看板 / 热力图 / 标签云 / 区块标题
+   只做视觉，不碰逻辑；动效对触屏友好，降级交给 style.css 里的 reduced-motion
+   ============================================================ */
+
+/* ---------- 首屏标题 ---------- */
+
+/* 标记字：在原有渐变上叠一道缓慢掠过的高光 */
+.art-display-mark {
+    background-image:
+        linear-gradient(110deg, transparent 38%, rgba(255, 255, 255, .95) 50%, transparent 62%),
+        linear-gradient(168deg, #ffffff 0%, #7ffcff 36%, #00ffff 72%, #00c2d6 100%);
+    background-size: 260% 100%, 100% 100%;
+    background-repeat: no-repeat;
+    background-position: 160% 0, 0 0;
+    animation: artTitleBreath 7.5s ease-in-out infinite, artTitleSheen 7s cubic-bezier(.45, 0, .25, 1) 2.4s infinite
+}
+
+body.theme-light .art-display-mark {
+    background-image:
+        linear-gradient(110deg, transparent 38%, rgba(255, 255, 255, .9) 50%, transparent 62%),
+        linear-gradient(168deg, #9df5ff 0%, #63e9fa 45%, #38daf0 100%);
+    background-size: 260% 100%, 100% 100%;
+    background-repeat: no-repeat;
+    background-position: 160% 0, 0 0
+}
+
+@keyframes artTitleSheen {
+    0% {
+        background-position: 160% 0, 0 0
+    }
+
+    38%,
+    100% {
+        background-position: -60% 0, 0 0
+    }
+}
+
+/* 打字光标：打字时闪烁，打完淡出 */
+.art-caret {
+    display: inline-block;
+    width: .06em;
+    min-width: 2px;
+    height: .82em;
+    margin-left: .12em;
+    vertical-align: -.04em;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #b9fdff, #00e5ff);
+    box-shadow: 0 0 10px rgba(0, 255, 255, .7), 0 0 22px rgba(0, 255, 255, .35);
+    animation: artCaretBlink 1s step-end infinite;
+    transition: opacity 1.2s ease 1.6s
+}
+
+.art-caret.is-done {
+    opacity: 0
+}
+
+@keyframes artCaretBlink {
+    50% {
+        visibility: hidden
+    }
+}
+
+/* 眉题：引线从左侧延展，文字随后显影 */
+.art-kicker {
+    animation: artFadeUp 1s var(--art-ease) both .1s
+}
+
+.art-kicker::before {
+    background: linear-gradient(90deg, transparent, var(--art-accent));
+    transform-origin: left center;
+    animation: artLineGrow 1.4s var(--art-ease) both
+}
+
+@keyframes artLineGrow {
+    from {
+        transform: scaleX(0)
+    }
+
+    to {
+        transform: scaleX(1)
+    }
+}
+
+@keyframes artFadeUp {
+    from {
+        opacity: 0;
+        translate: 0 14px
+    }
+
+    to {
+        opacity: 1;
+        translate: 0 0
+    }
+}
+
+/* 副标题两侧的菱形缓慢自转 */
+.art-hero-sub i {
+    display: inline-block;
+    animation: artDiamondSpin 9s linear infinite
+}
+
+@keyframes artDiamondSpin {
+    to {
+        rotate: 360deg
+    }
+}
+
+/* ---------- 数据看板 ---------- */
+
+/* 六格依次浮现 */
+.art-stat {
+    position: relative;
+    animation: artFadeUp .9s var(--art-ease) both
+}
+
+.art-stat:nth-child(1) { animation-delay: .25s }
+.art-stat:nth-child(2) { animation-delay: .33s }
+.art-stat:nth-child(3) { animation-delay: .41s }
+.art-stat:nth-child(4) { animation-delay: .49s }
+.art-stat:nth-child(5) { animation-delay: .57s }
+.art-stat:nth-child(6) { animation-delay: .65s }
+
+/* 标签前的小光点，hover 时拉长成一道光条 */
+.art-stat-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: color .5s ease
+}
+
+.art-stat-label::before {
+    content: "";
+    width: 4px;
+    height: 4px;
+    flex: none;
+    border-radius: 4px;
+    background: var(--art-accent);
+    box-shadow: 0 0 8px var(--art-accent);
+    opacity: .55;
+    transition: width .6s var(--art-ease), opacity .5s ease
+}
+@media (hover: hover) and (pointer: fine){.art-stat:hover .art-stat-label{
+    color: var(--art-ink-2)
+}}
+@media (hover: hover) and (pointer: fine){.art-stat:hover .art-stat-label::before{
+    width: 18px;
+    opacity: 1
+}}
+
+body.theme-light .art-stat-label::before {
+    box-shadow: none
+}
+
+/* ---------- 热力图 / 标签云面板 ---------- */
+
+.art-heatmap,
+.art-tagcloud {
+    position: relative;
+    isolation: isolate;
+    background:
+        radial-gradient(90% 120% at 0% 0%, rgba(0, 255, 255, .055), transparent 55%),
+        linear-gradient(180deg, rgba(14, 22, 27, .55), rgba(8, 13, 16, .4));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 10px 30px rgba(0, 0, 0, .22);
+    animation: artFadeUp 1s var(--art-ease) both .35s
+}
+
+.art-tagcloud {
+    animation-delay: .5s
+}
+
+/* 面板内光斑（垫在内容下面） */
+.art-heatmap::before,
+.art-tagcloud::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(0, 255, 255, .07), transparent 65%);
+    opacity: 0;
+    transition: opacity .6s ease
+}
+
+/* 描边光：只在边框上跟随鼠标 */
+.art-heatmap::after,
+.art-tagcloud::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    padding: 1px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(0, 255, 255, .75), transparent 62%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    opacity: 0;
+    transition: opacity .6s ease
+}
+
+@media (hover: hover) and (pointer: fine) {
+
+    .art-heatmap:hover::before,
+    .art-tagcloud:hover::before,
+    .art-heatmap:hover::after,
+    .art-tagcloud:hover::after {
+        opacity: 1
+    }
+}
+
+body.theme-light .art-heatmap,
+body.theme-light .art-tagcloud {
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, .04)
+}
+
+body.theme-light .art-heatmap::before,
+body.theme-light .art-tagcloud::before {
+    background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(14, 127, 156, .06), transparent 65%)
+}
+
+body.theme-light .art-heatmap::after,
+body.theme-light .art-tagcloud::after {
+    background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(14, 127, 156, .55), transparent 62%)
+}
+
+/* 面板标题前的呼吸信号灯 */
+.art-heatmap .art-panel-title,
+.art-tagcloud .art-panel-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px
+}
+
+.art-heatmap .art-panel-title::before,
+.art-tagcloud .art-panel-title::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--art-accent);
+    animation: artBeacon 2.6s ease-out infinite
+}
+
+@keyframes artBeacon {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 255, 255, .55)
+    }
+
+    70%,
+    100% {
+        box-shadow: 0 0 0 8px rgba(0, 255, 255, 0)
+    }
+}
+
+/* 年份切换：数字翻入 */
+.art-year-value {
+    animation: artYearFlip .55s var(--art-ease) both
+}
+
+@keyframes artYearFlip {
+    from {
+        opacity: 0;
+        translate: 0 -8px;
+        filter: blur(3px)
+    }
+
+    to {
+        opacity: 1;
+        translate: 0 0;
+        filter: blur(0)
+    }
+}
+
+.art-year-btn {
+    transition: color .35s ease, background-color .35s ease, transform .2s ease
+}
+
+.art-year-btn:active {
+    transform: scale(.86)
+}
+
+/* ---------- 热力图格子 ---------- */
+
+/* 按周列从左到右涟漪式点亮；切换年份时格子重建，涟漪会重播 */
+.art-heatmap #heatmapGrid>div>div:not(.opacity-0) {
+    /* backwards：涟漪结束后不再挂着已完成的动画，365 个格子不会一直留在效果栈里加重重绘 */
+    animation: artHeatIn .6s var(--art-ease) backwards;
+    animation-delay: calc(var(--w, 0) * 11ms + 150ms);
+    transition: background-color .3s ease, border-color .3s ease, box-shadow .3s ease, transform .3s var(--art-ease)
+}
+
+@keyframes artHeatIn {
+    from {
+        opacity: 0;
+        scale: .2
+    }
+
+    to {
+        opacity: 1;
+        scale: 1
+    }
+}
+
+/* 最高档格子：叠加缓慢的呼吸辉光 */
+.art-heatmap #heatmapGrid>div>div.bg-cyan-400 {
+    animation:
+        artHeatIn .6s var(--art-ease) backwards calc(var(--w, 0) * 11ms + 150ms),
+        artHeatPulse 3.2s ease-in-out infinite calc(var(--w, 0) * 60ms)
+}
+
+@keyframes artHeatPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 8px rgba(0, 255, 255, .7), 0 0 18px rgba(0, 255, 255, .3)
+    }
+
+    50% {
+        box-shadow: 0 0 12px rgba(0, 255, 255, .95), 0 0 28px rgba(0, 255, 255, .5)
+    }
+}
+
+body.theme-light .art-heatmap #heatmapGrid>div>div.bg-cyan-400 {
+    animation: artHeatIn .6s var(--art-ease) backwards calc(var(--w, 0) * 11ms + 150ms)
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .art-heatmap #heatmapGrid>div>div:not(.opacity-0):hover {
+        transform: scale(1.45);
+        position: relative;
+        z-index: 1
+    }
+}
+
+/* 横向滚动容器会连带裁掉纵向溢出：四周留出光晕空间，再用负外边距抵消，布局不动 */
+.art-heatmap .art-heatmap-scroll {
+    padding: 12px 10px 15px;
+    margin: -12px -10px -12px
+}
+
+/* ---------- 标签云 ---------- */
+
+/* 依次浮现 */
+.art-tagcloud-item {
+    animation: artTagIn .7s var(--art-ease) both;
+    animation-delay: calc(min(var(--n, 0), 24) * 40ms + 550ms);
+    transition: transform .45s var(--art-ease), color .3s ease, background-color .3s ease, border-color .3s ease, box-shadow .45s ease
+}
+
+@keyframes artTagIn {
+    from {
+        opacity: 0;
+        translate: 0 10px;
+        scale: .85
+    }
+
+    to {
+        opacity: 1;
+        translate: 0 0;
+        scale: 1
+    }
+}
+@media (hover: hover) and (pointer: fine){/* hover：上浮并带一圈同色光晕 */
+.art-tagcloud-item:hover{
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px -6px hsl(var(--tag-h) 90% 55% / .5)
+}}
+
+.art-tagcloud-item:active {
+    transform: scale(.94)
+}
+
+/* 当前筛选的标签：光晕缓慢呼吸 */
+.art-tagcloud-item.is-active {
+    animation:
+        artTagIn .7s var(--art-ease) both calc(min(var(--n, 0), 24) * 40ms + 550ms),
+        artTagActive 2.4s ease-in-out infinite
+}
+
+@keyframes artTagActive {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 1px hsl(var(--tag-h) 88% 66% / .5), 0 0 12px hsl(var(--tag-h) 90% 60% / .3)
+    }
+
+    50% {
+        box-shadow: 0 0 0 1px hsl(var(--tag-h) 88% 70% / .8), 0 0 24px hsl(var(--tag-h) 90% 60% / .55)
+    }
+}
+
+/* 计数做成小徽标 */
+.art-tagcloud-count {
+    padding: 0 5px;
+    border-radius: 6px;
+    background: hsl(var(--tag-h) 80% 60% / .12);
+    line-height: 1.5
+}
+
+/* ---------- 区块标题「随笔记录」 ---------- */
+
+.art-sec-head.art-blog-head {
+    position: relative;
+    border-bottom-color: transparent
+}
+
+/* 底线：渐隐的细线 + 一道定期扫过的流光 */
+.art-sec-head.art-blog-head::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
+    background:
+        linear-gradient(90deg, transparent, rgba(160, 255, 255, .95), transparent) no-repeat,
+        linear-gradient(90deg, var(--art-accent) 0, var(--art-line) 120px, var(--art-line) 70%, transparent);
+    background-size: 160px 100%, 100% 100%;
+    background-position: -160px 0, 0 0;
+    animation: artLineSweep 6s ease-in-out infinite 1s
+}
+
+@keyframes artLineSweep {
+    0% {
+        background-position: -160px 0, 0 0
+    }
+
+    45%,
+    100% {
+        background-position: calc(100% + 160px) 0, 0 0
+    }
+}
+
+/* 标题本身：前置光条 + 极淡的辉光 */
+.art-blog-head .art-sec-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    text-shadow: 0 0 24px rgba(0, 255, 255, .18)
+}
+
+.art-blog-head .art-sec-title::before {
+    content: "";
+    flex: none;
+    width: 3px;
+    height: .95em;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #b9fdff, var(--art-accent));
+    box-shadow: 0 0 12px rgba(0, 255, 255, .55)
+}
+
+body.theme-light .art-blog-head .art-sec-title {
+    text-shadow: none
+}
+
+body.theme-light .art-blog-head .art-sec-title::before {
+    background: var(--art-accent);
+    box-shadow: none
+}
+
+/* ============================================================
+   清爽模式补强：深色主题里靠白光/青光撑起来的效果，在白底上换成更深的青
+   ============================================================ */
+
+/* 打字光标 */
+body.theme-light .art-caret {
+    background: linear-gradient(180deg, #38daf0, var(--art-accent));
+    box-shadow: 0 0 8px rgba(14, 127, 156, .35)
+}
+
+/* 面板信号灯的扩散环 */
+body.theme-light .art-heatmap .art-panel-title::before,
+body.theme-light .art-tagcloud .art-panel-title::before {
+    animation-name: artBeaconLight
+}
+
+@keyframes artBeaconLight {
+    0% {
+        box-shadow: 0 0 0 0 rgba(14, 127, 156, .45)
+    }
+
+    70%,
+    100% {
+        box-shadow: 0 0 0 8px rgba(14, 127, 156, 0)
+    }
+}
+
+/* 面板与卡片的跟随光斑：白底上加深一档 */
+body.theme-light .art-heatmap::before,
+body.theme-light .art-tagcloud::before {
+    background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 50%), rgba(14, 160, 190, .1), transparent 65%)
+}
+
+body.theme-light .art-heatmap::after,
+body.theme-light .art-tagcloud::after {
+    background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(14, 127, 156, .75), transparent 62%)
+}
+
+body.theme-light .art-blog-spot {
+    background: radial-gradient(460px circle at var(--mx, 50%) var(--my, 50%), rgba(14, 160, 190, .1), transparent 62%)
+}
+
+/* 热力图最高档：白底上用柔和的青色呼吸 */
+body.theme-light .art-heatmap #heatmapGrid>div>div.bg-cyan-400 {
+    animation:
+        artHeatIn .6s var(--art-ease) backwards calc(var(--w, 0) * 11ms + 150ms),
+        artHeatPulseLight 3.2s ease-in-out infinite calc(var(--w, 0) * 60ms)
+}
+
+/* 原有亮色规则用 !important 钉住了 box-shadow，动画盖不过，这里改用 filter 做呼吸 */
+@keyframes artHeatPulseLight {
+
+    0%,
+    100% {
+        filter: drop-shadow(0 0 0 rgba(0, 190, 215, 0))
+    }
+
+    50% {
+        filter: drop-shadow(0 0 5px rgba(0, 190, 215, .75))
+    }
+}
+
+/* 「随笔记录」底线流光 */
+body.theme-light .art-sec-head.art-blog-head::after {
+    background:
+        linear-gradient(90deg, transparent, rgba(14, 160, 190, .95), transparent) no-repeat,
+        linear-gradient(90deg, var(--art-accent) 0, var(--art-line) 120px, var(--art-line) 70%, transparent);
+    background-size: 160px 100%, 100% 100%;
+    background-position: -160px 0, 0 0
+}
+
+/* 卡片：静止时一条极淡的青色描边 + 柔和投影，hover 时顶边高光更明显 */
+body.theme-light .art-blog-card {
+    border-color: rgba(14, 127, 156, .1);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px -12px rgba(15, 23, 42, .1)
+}
+@media (hover: hover) and (pointer: fine){body.theme-light .art-blog-card:hover{
+    border-color: rgba(14, 127, 156, .28)
+}}
+@media (hover: hover) and (pointer: fine){body.theme-light .art-blog-card:hover::before{
+    opacity: 1
+}}
+@media (hover: hover) and (pointer: fine){/* 标签云 hover 光晕：白底上收紧一点，颜色更实 */
+body.theme-light .art-tagcloud-item:hover{
+    box-shadow: 0 6px 16px -6px hsl(var(--tag-h) 75% 45% / .45)
+}}
+
+/* 数据看板旁的青色光雾：白底上补一点 */
+body.theme-light .art-hero-aside::before {
+    background: radial-gradient(58% 52% at 68% 46%, rgba(0, 190, 215, .1), transparent 72%)
+}
+
+/* ============================================================
+   背景意识流光晕：多色调、极淡、缓慢漂移
+   只用径向渐变 + transform/opacity 动画，手机上也只走合成线程
+   ============================================================ */
+
+/* 第三团光：深色主题里是一抹淡紫 */
+.art-blob-c {
+    width: 26vmax;
+    height: 26vmax;
+    top: 58%;
+    left: 8%;
+    background: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, .08), rgba(139, 92, 246, .02) 46%, transparent 74%);
+    animation-duration: 54s;
+    animation-delay: -12s
+}
+
+/* 清爽模式：青 / 薰衣草 / 蜜桃 / 薄荷 四色环境光，整体缓慢呼吸 */
+body.theme-light .art-glow {
+    background:
+        radial-gradient(760px 460px at 12% -6%, rgba(56, 214, 236, .14), transparent 70%),
+        radial-gradient(820px 520px at 96% 4%, rgba(167, 139, 250, .12), transparent 70%),
+        radial-gradient(760px 560px at -6% 92%, rgba(253, 186, 140, .12), transparent 70%),
+        radial-gradient(860px 600px at 102% 100%, rgba(94, 234, 212, .11), transparent 70%),
+        radial-gradient(1100px 700px at 55% 45%, rgba(236, 72, 153, .035), transparent 72%);
+    animation: artLightBreath 28s ease-in-out infinite alternate;
+    will-change: transform, opacity
+}
+
+@keyframes artLightBreath {
+    0% {
+        transform: scale(1) translate3d(0, 0, 0);
+        opacity: .85
+    }
+
+    50% {
+        transform: scale(1.06) translate3d(-1.5%, 1%, 0);
+        opacity: 1
+    }
+
+    100% {
+        transform: scale(1.03) translate3d(1.5%, -1%, 0);
+        opacity: .9
+    }
+}
+
+/* 漂浮光团：各自一种淡彩 */
+body.theme-light .art-blob-a {
+    background: radial-gradient(circle at 50% 50%, rgba(56, 214, 236, .2), rgba(167, 139, 250, .08) 48%, transparent 74%)
+}
+
+body.theme-light .art-blob-b {
+    background: radial-gradient(circle at 50% 50%, rgba(251, 146, 160, .16), rgba(253, 186, 140, .07) 48%, transparent 74%)
+}
+
+body.theme-light .art-blob-c {
+    background: radial-gradient(circle at 50% 50%, rgba(94, 234, 212, .18), rgba(125, 211, 252, .07) 48%, transparent 74%)
+}

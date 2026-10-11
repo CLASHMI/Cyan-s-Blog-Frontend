@@ -1,0 +1,6222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MEL-13 :: PurityCore 变异检测系统</title>
+  <!-- <link rel="stylesheet" href="css/style.css"> -->
+  <style>
+    :root {
+      --primary: #00ff00;
+      --secondary: #00aa00;
+      --danger: #ff0000;
+      --warning: #ff9900;
+      --info: #0099ff;
+      --dark: #001100;
+      --light: #003300;
+      --bg: #000000;
+      --text: #00ff00;
+      --alert: #ff3300;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #00aa00;
+      border-radius: 3px;
+    }
+
+    /* Firefox */
+    * {
+      scrollbar-width: thin;
+      /* 与 6 px 对应 */
+      scrollbar-color: #00aa00 transparent;
+      /* 拇指 / 轨道 */
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Courier New', monospace;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+      overflow-y: scroll;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      user-select: none
+    }
+
+    body {
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
+
+    body::-webkit-scrollbar {
+      display: none;
+    }
+
+    .container {
+      width: 95%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      border-bottom: 1px solid var(--primary);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .header-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(0deg,
+          rgba(0, 255, 0, 0.1),
+          rgba(0, 255, 0, 0.1) 1px,
+          transparent 1px,
+          transparent 5px);
+      pointer-events: none;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      color: var(--primary);
+      margin-bottom: 15px;
+      text-shadow: 0 0 5px var(--primary);
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      letter-spacing: 2px;
+    }
+
+    h2 {
+      font-size: 1.8rem;
+      border-left: 3px solid var(--primary);
+      padding-left: 10px;
+    }
+
+    h3 {
+      font-size: 1.4rem;
+    }
+
+    h4 {
+      font-size: 1.2rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .panel {
+      background-color: rgba(0, 20, 0, 0.7);
+      border: 1px solid var(--secondary);
+      padding: 15px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(rgba(0, 255, 0, 0.05),
+          rgba(0, 255, 0, 0.02));
+      pointer-events: none;
+    }
+
+    .panel ul {
+      margin-left: 0.8em;
+    }
+
+    .panel-header {
+      position: relative;
+      background-color: #001a00;
+      border-bottom: 1px solid #004400;
+      padding: 15px;
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn {
+      background-color: var(--dark);
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      padding: 8px 15px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .btn:hover {
+      background-color: var(--primary);
+      color: var(--bg);
+      box-shadow: 0 0 10px var(--primary);
+    }
+
+    .btn-danger {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    .btn-danger:hover {
+      background-color: var(--danger);
+      color: white;
+      box-shadow: 0 0 10px var(--danger);
+    }
+
+    .btn-warning {
+      border-color: var(--warning);
+      color: var(--warning);
+    }
+
+    .btn-warning:hover {
+      background-color: var(--warning);
+      color: black;
+      box-shadow: 0 0 10px var(--warning);
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--secondary);
+    }
+
+    input,
+    select {
+      background-color: rgba(0, 30, 0, 0.7);
+      border: 1px solid var(--secondary);
+      color: var(--primary);
+      padding: 8px;
+      width: 100%;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 5px var(--primary);
+    }
+
+    /* ==========================================
+   进度框外壳：沿用原样
+   ==========================================*/
+    .progress-container {
+      width: 100%;
+      background-color: rgba(0, 30, 0, 0.7);
+      border: 1px solid var(--secondary);
+      padding: 3px;
+      margin-bottom: 10px;
+    }
+
+    /* ==========================================
+   副进度条（步骤 1‑7）
+   ==========================================*/
+    .progress-bar {
+      height: 20px;
+      width: 0%;
+      background-color: var(--primary);
+      position: relative;
+      overflow: hidden;
+      /* transition: width 0.3s linear; */
+    }
+
+    /* 仅作用于副进度条的发光层 —— 排除 #scan-progress */
+    .progress-bar:not(#scan-progress)::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg,
+          transparent,
+          rgba(0, 255, 0, 0.3),
+          transparent);
+      /* animation: progressShine 2s infinite; */
+    }
+
+    /* 新增的"检测中"状态样式 */
+    .scan-result.result-pending {
+      color: var(--secondary);
+      animation: blink 1.5s infinite;
+    }
+
+    /* 确保危险状态保持 */
+    .progress-bar-danger {
+      background-color: var(--danger) !important;
+      animation: blink 0.5s infinite;
+    }
+
+
+    /* 主进度条（总进度）：18 px 实块 + 2 px 间隙 */
+    #scan-progress {
+      height: 20px;
+      width: 0%;
+      overflow: hidden;
+      border-radius: 2px;
+
+      /* 分段背景：实色块 ➜ 透明缝隙 */
+      background-image: repeating-linear-gradient(to right,
+          var(--primary) 0 18px,
+          transparent 18px 20px);
+
+      /* ★ 关键：不要再写 background‑color，否则缝隙被盖住 */
+      /* background-color: var(--primary);   ← 删除或注释 */
+
+      transition: width 0.3s linear;
+    }
+
+    /* 异常态（可选） */
+    #scan-progress.progress-bar-danger {
+      background-image: repeating-linear-gradient(to right,
+          var(--danger) 0 18px,
+          transparent 18px 20px);
+      /* 依旧不要 background‑color */
+    }
+
+    #scan-progress-container {
+      display: flex;
+      gap: 2px;
+      /* 缝隙宽度 */
+      height: 20px;
+      padding: 3px;
+      background-color: rgba(0, 30, 0, 0.7);
+      border: 1px solid var(--secondary);
+      margin-bottom: 10px;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .scan-progress-segment {
+      flex: 1;
+      background-color: var(--primary);
+      opacity: 0.2;
+      /* transition: opacity 0.3s; */
+      border-radius: 1px;
+    }
+
+    /* 正常已填充 */
+    .scan-progress-segment.filled {
+      opacity: 1;
+      background-color: var(--primary);
+    }
+
+    .scan-progress-segment.filled-danger {
+      animation: blink-red 1s infinite;
+      background-color: var(--danger);
+    }
+
+    @keyframes blink-red {
+
+      0%,
+      100% {
+        background-color: #ff0000;
+        box-shadow: 0 0 8px 2px rgba(255, 0, 0, 1);
+      }
+
+      50% {
+        background-color: #d1a7a7;
+        box-shadow: 0 0 12px 4px rgb(195, 110, 110);
+      }
+    }
+
+
+
+
+    @keyframes progressShine {
+      0% {
+        transform: translateX(-100%);
+      }
+
+      100% {
+        transform: translateX(100%);
+      }
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    /* 在样式表中添加 */
+    .log-error {
+      color: var(--danger) !important;
+      border-left-color: var(--danger) !important;
+    }
+
+    .log-error .log-time {
+      color: var(--danger) !important;
+    }
+
+    .log-error .log-message {
+      color: var(--danger) !important;
+      font-weight: bold;
+    }
+
+    .status-normal {
+      background-color: var(--primary);
+      box-shadow: 0 0 5px var(--primary);
+    }
+
+    .status-warning {
+      background-color: var(--warning);
+      box-shadow: 0 0 5px var(--warning);
+    }
+
+    .status-danger {
+      background-color: var(--danger);
+      box-shadow: 0 0 5px var(--danger);
+      animation: pulse 1s infinite;
+    }
+
+    .log-entry {
+      border-left: 3px solid var(--secondary);
+      padding-left: 10px;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+    }
+
+    .log-time {
+      color: var(--secondary);
+      font-size: 0.8rem;
+    }
+
+    .log-message {
+      margin-top: 3px;
+    }
+
+    .alert {
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid;
+      display: none;
+    }
+
+    .alert-danger {
+      border-color: var(--danger);
+      background-color: rgba(255, 0, 0, 0.1);
+      color: var(--danger);
+    }
+
+    .alert-warning {
+      border-color: var(--warning);
+      background-color: rgba(255, 153, 0, 0.1);
+      color: var(--warning);
+    }
+
+    .alert-info {
+      border-color: var(--info);
+      background-color: rgba(0, 153, 255, 0.1);
+      color: var(--info);
+    }
+
+    .scan-steps-container {
+      margin-top: 1.8em;
+      position: relative;
+      height: 40px;
+    }
+
+    .scan-step {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      display: none;
+    }
+
+    .scan-step.active {
+      display: block;
+    }
+
+    .scan-title {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .scan-name {
+      margin-right: 10px;
+    }
+
+    .scan-result {
+      margin-left: auto;
+      font-weight: bold;
+    }
+
+    .result-normal {
+      color: var(--primary);
+    }
+
+    .result-warning {
+      color: var(--warning);
+    }
+
+    .result-danger {
+      color: var(--danger);
+      animation: blink 0.5s infinite;
+    }
+
+    @keyframes blink {
+      0% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+
+      100% {
+        opacity: 1;
+      }
+    }
+
+    /* █▓▒░ 核心容器 ░▒▓█ */
+    .attribute-meter {
+      margin-bottom: 15px;
+      position: relative;
+      border-left: 2px solid rgba(0, 255, 0, 0.3);
+      padding-left: 8px;
+    }
+
+    /* █▓▒░ 标签栏 ░▒▓█ */
+    .attribute-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    /* 属性说明卡片：横向排「代码 + 名称」，下面一行放描述 */
+    .attribute-definition {
+      background-color: rgba(0, 30, 0, 0.5);
+      border: 1px solid #005500;
+      padding: 8px;
+      border-radius: 4px;
+
+      /* ── 关键改动 ── */
+      display: flex;
+      /* 启用 flex 布局 */
+      flex-wrap: wrap;
+      /* 允许换行 */
+      align-items: center;
+      /* 垂直居中首行元素 */
+      justify-content: center;
+      /* 水平整体居中 */
+      text-align: center;
+      /* 文本居中 */
+
+      /* 新增：交互效果 */
+      cursor: default;
+      transition: all 0.2s ease;
+    }
+
+    /* 新增：悬停效果 */
+    .attribute-definition:hover {
+      background-color: rgba(0, 40, 0, 0.6);
+      border-color: #00aa00;
+    }
+
+    /* 代码 + 名称并排 (本来就是 inline-block，可保持不变) */
+    .attribute-code {
+      display: inline-block;
+      width: 40px;
+      font-weight: bold;
+      color: #00ff00;
+      margin-right: 4px;
+    }
+
+    .attribute-name {
+      font-size: .9rem;
+      font-weight: bold;
+      color: #00ff00;
+      text-shadow: 0 0 8px rgba(0, 255, 0, .5);
+      letter-spacing: .5px;
+    }
+
+    /* 描述单独占一整行 */
+    .attribute-desc {
+      font-size: .8rem;
+      color: #39ce68;
+      flex: 1 0 100%;
+      /* ↔ 占满整行，自动换到下一行 */
+      margin-top: 4px;
+      /* 与首行留一点间隔 */
+    }
+
+    .attribute-name::before {
+      content: "■";
+      color: #00ff00;
+      margin-right: 6px;
+      font-size: 0.6rem;
+      vertical-align: middle;
+    }
+
+    .attribute-value {
+      font-size: 0.8rem;
+      font-family: 'Courier New', monospace;
+      color: #00ff88;
+      text-shadow: 0 0 5px rgba(0, 255, 128, 0.3);
+      background: rgba(0, 40, 0, 0.3);
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    /* █▓▒░ 进度条容器 ░▒▓█ */
+    .meter-bar {
+      height: 12px;
+      background:
+        repeating-linear-gradient(90deg,
+          rgba(0, 30, 0, 0.2) 0px,
+          rgba(0, 30, 0, 0.2) 1px,
+          transparent 2px);
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(0, 255, 0, 0.2);
+      box-shadow:
+        inset 0 0 10px rgba(0, 60, 0, 0.5),
+        0 0 15px rgba(0, 40, 0, 0.3);
+      border-radius: 2px;
+    }
+
+    /* █▓▒░ 进度填充 ░▒▓█ */
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      position: relative;
+      transition: width 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    .meter-fill::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg,
+          rgba(255, 255, 255, 0) 0%,
+          rgba(255, 255, 255, 0.15) 50%,
+          rgba(255, 255, 255, 0) 100%);
+    }
+
+    /* █▓▒░ 等级颜色 ░▒▓█ */
+    .meter-low {
+      background: linear-gradient(135deg,
+          #00ff00 0%,
+          #00cc00 100%);
+      box-shadow:
+        inset 0 0 10px rgba(0, 255, 0, 0.5),
+        0 0 15px rgba(0, 255, 0, 0.3);
+    }
+
+    .meter-medium {
+      background: linear-gradient(135deg,
+          #ffff00 0%,
+          #ffcc00 100%);
+      box-shadow:
+        inset 0 0 10px rgba(255, 255, 0, 0.5),
+        0 0 15px rgba(255, 255, 0, 0.3);
+    }
+
+    .meter-high {
+      background: linear-gradient(135deg,
+          #ff9900 0%,
+          #ff6600 100%);
+      box-shadow:
+        inset 0 0 10px rgba(255, 153, 0, 0.5),
+        0 0 15px rgba(255, 153, 0, 0.3);
+    }
+
+    /* █▓▒░ 紫色等级 - 光流效果 ░▒▓█ */
+    .meter-very-high {
+      background: linear-gradient(135deg,
+          #ff00ff 0%,
+          #cc00cc 100%);
+      box-shadow:
+        inset 0 0 12px rgba(255, 0, 255, 0.6),
+        0 0 18px rgba(255, 0, 255, 0.4);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .meter-very-high::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 60%;
+      height: 100%;
+      background: linear-gradient(90deg,
+          rgba(255, 255, 255, 0) 0%,
+          rgba(255, 255, 255, 0.4) 50%,
+          rgba(255, 255, 255, 0) 100%);
+      animation: purpleGlow 2.5s infinite;
+    }
+
+    @keyframes purpleGlow {
+      0% {
+        left: -100%;
+        opacity: 0.7;
+      }
+
+      50% {
+        opacity: 1;
+      }
+
+      100% {
+        left: 150%;
+        opacity: 0.5;
+      }
+    }
+
+    /* █▓▒░ 红色等级 - 警报闪烁 ░▒▓█ */
+    /* ===================================== */
+    /* meter-extreme：独立警报闪烁 + 柔光晕  */
+    /* ===================================== */
+
+    .meter-extreme {
+      background: linear-gradient(90deg, #ff0000, #cc0000);
+      box-shadow:
+        0 0 8px rgba(255, 0, 0, 0.7),
+        0 0 25px rgba(255, 0, 0, 0.5);
+      animation: alertPulse 1.5s infinite ease-in-out;
+    }
+
+    /* ---------- 新动画：亮度 + 光晕同步 ---------- */
+    @keyframes alertPulse {
+
+      0%,
+      100% {
+        opacity: 0.3;
+        box-shadow:
+          0 0 8px rgba(255, 0, 0, 0.6),
+          0 0 15px rgba(255, 0, 0, 0.2);
+        /* 光晕弱 */
+      }
+
+      50% {
+        opacity: 0.8;
+        box-shadow:
+          0 0 12px rgba(255, 0, 0, 0.8),
+          0 0 35px rgba(255, 0, 0, 0.6);
+        /* 光晕强 */
+      }
+    }
+
+    /* █▓▒░ 交互特效 ░▒▓█ */
+    .attribute-meter:hover {
+      border-left-color: rgba(0, 255, 0, 0.6);
+    }
+
+    .attribute-meter:hover .meter-fill {
+      filter: brightness(1.3);
+    }
+
+    .attribute-meter:hover .meter-fill::after {
+      animation: shine 1.5s infinite;
+    }
+
+    .attribute-meter:hover .attribute-name {
+      text-shadow: 0 0 12px rgba(0, 255, 0, 0.8);
+    }
+
+    .attribute-meter:hover .attribute-value {
+      background: rgba(0, 60, 0, 0.5);
+      color: #00ffcc;
+    }
+
+    .subject-info {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+    }
+
+    .subject-details {
+      flex: 1;
+    }
+
+    .subject-id {
+      font-size: 0.9rem;
+      color: var(--secondary);
+    }
+
+    .subject-name {
+      font-size: 1.5rem;
+      color: var(--primary);
+      margin: 5px 0;
+    }
+
+    .subject-meta {
+      font-size: 0.9rem;
+      color: var(--secondary);
+    }
+
+
+    .status-level {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .status-label {
+      font-size: 0.9rem;
+      color: var(--secondary);
+    }
+
+    .glitch {
+      position: relative;
+    }
+
+    .glitch::before,
+    .glitch::after {
+      content: attr(data-text);
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+    }
+
+    .glitch::before {
+      left: 2px;
+      text-shadow: -2px 0 #ff00ff;
+      clip: rect(24px, 550px, 90px, 0);
+      animation: glitch-anim-1 2s infinite linear alternate-reverse;
+    }
+
+    .glitch::after {
+      left: -2px;
+      text-shadow: -2px 0 #00ffff;
+      clip: rect(85px, 550px, 140px, 0);
+      animation: glitch-anim-2 2s infinite linear alternate-reverse;
+    }
+
+    @keyframes glitch-anim-1 {
+      0% {
+        clip: rect(32px, 9999px, 76px, 0);
+      }
+
+      20% {
+        clip: rect(54px, 9999px, 99px, 0);
+      }
+
+      40% {
+        clip: rect(32px, 9999px, 91px, 0);
+      }
+
+      60% {
+        clip: rect(88px, 9999px, 98px, 0);
+      }
+
+      80% {
+        clip: rect(45px, 9999px, 99px, 0);
+      }
+
+      100% {
+        clip: rect(91px, 9999px, 98px, 0);
+      }
+    }
+
+    @keyframes glitch-anim-2 {
+      0% {
+        clip: rect(65px, 9999px, 119px, 0);
+      }
+
+      20% {
+        clip: rect(25px, 9999px, 145px, 0);
+      }
+
+      40% {
+        clip: rect(75px, 9999px, 106px, 0);
+      }
+
+      60% {
+        clip: rect(55px, 9999px, 125px, 0);
+      }
+
+      80% {
+        clip: rect(30px, 9999px, 92px, 0);
+      }
+
+      100% {
+        clip: rect(88px, 9999px, 120px, 0);
+      }
+    }
+
+    .terminal-effect {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(0deg,
+          rgba(0, 255, 0, 0.05),
+          rgba(0, 255, 0, 0.05) 1px,
+          transparent 1px,
+          transparent 3px);
+      pointer-events: none;
+      z-index: 1000;
+      display: none;
+    }
+
+    .scan-animation {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle,
+          rgba(0, 255, 0, 0.1) 0%,
+          transparent 70%);
+      animation: scanPulse 3s infinite;
+      pointer-events: none;
+      display: none;
+    }
+
+    @keyframes scanPulse {
+      0% {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+
+      100% {
+        transform: scale(1.2);
+        opacity: 0;
+      }
+    }
+
+    .data-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    /* ===== 卡片本体：三行 Grid ===== */
+    .data-card {
+      height: 230px;
+      overflow: hidden;
+      background-color: rgba(0, 30, 0, 0.5);
+      border: 1px solid var(--secondary);
+      padding: 15px;
+      transition: all 0.3s;
+
+      /* 关键：将卡片设为三行网格 */
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      /* header | body(自适应) | footer */
+      gap: 10px;
+      /* 行间距 */
+
+      width: 100%;
+      /* 明确宽度限制 */
+      max-width: 100%;
+      /* 防止溢出 */
+      box-sizing: border-box;
+    }
+
+    .data-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 0 10px var(--primary);
+    }
+
+    /* ===== 头部 ===== */
+    .data-card-header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--secondary);
+      padding-bottom: 10px;
+    }
+
+    .data-card-title {
+      font-weight: bold;
+    }
+
+    .data-card-type {
+      font-size: 0.8rem;
+      color: var(--secondary);
+    }
+
+    /* ===== 中间内容 ===== */
+    .data-card-body {
+      font-size: 0.9rem;
+      width: 100%;
+      box-sizing: border-box;
+      overflow: hidden;
+      /* 限制内部内容溢出 */
+    }
+
+    /* ===== 尾部徽章区：始终贴底 ===== */
+    .data-card-footer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .ability-desc {
+      /* 标准写法（目前仅 Safari 17+、Chrome/Edge 开启实验标志时支持） */
+      line-clamp: 4;
+      /* 等价于 max-lines:4 + block-overflow:ellipsis */
+
+      /* 旧版私有写法——仍是大多数浏览器唯一可用方式 */
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 4;
+
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.4;
+      margin: 0 0 6px;
+    }
+
+    /* 英文名行 */
+    .en-name-line {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      width: 100%;
+      overflow: hidden;
+      /* 关键：防止内容溢出容器 */
+      box-sizing: border-box;
+      padding-right: 15px;
+      /* 保留右内边距 */
+      white-space: nowrap;
+      /* 不允许换行，保证“英文名:”整体在一行 */
+    }
+
+    /* “英文名:”标签不换行，且宽度自适应 */
+    .en-name-line strong {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      user-select: none;
+      /* 可选，防止选中文字时换行 */
+    }
+
+    /* 英文名内容区域，超长用省略号 */
+    .en-value {
+      flex: 1 1 auto;
+      min-width: 0;
+      /* 允许收缩，不撑破容器 */
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+
+    .hidden {
+      display: none;
+    }
+
+    .alert-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.95);
+      padding: 50px;
+      z-index: 2001;
+      text-align: center;
+      width: 500px;
+      min-height: 300px;
+      display: none;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+      color: #ff0000;
+      font-weight: 800;
+      text-shadow: 0 0 15px rgba(255, 0, 0, 0.9);
+      backdrop-filter: blur(3px);
+      background-color: rgba(0, 0, 0, 0.97);
+      /* 默认动画（L-4级使用） */
+      animation: textFlicker 0.5s infinite alternate;
+    }
+
+    /* L-5级专属样式（通过JS动态添加） */
+    .alert-message.critical {
+      animation:
+        textFlicker 0.3s infinite alternate,
+        textShake 0.5s infinite linear;
+      box-shadow: 0 0 30px rgba(255, 0, 0, 0.7);
+    }
+
+    /* 增大标题字体 */
+    .alert-message h2 {
+      font-size: 2.5rem;
+      margin-bottom: 30px;
+    }
+
+    /* 增大内容字体 */
+    .alert-message p {
+      font-size: 1.5rem;
+      line-height: 1.6;
+      margin-bottom: 40px;
+    }
+
+    /* 按钮样式调整 */
+    .alert-message .btn {
+      margin-top: 20px;
+      padding: 12px 30px;
+      font-size: 1.2rem;
+    }
+
+    /* 背景闪烁动画 - 修改为L-4级专用 */
+    .alert-siren {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 0, 0, 0.15);
+      /* 透明度降低为0.15 */
+      z-index: 2000;
+      display: none;
+      backdrop-filter: blur(2px);
+      animation: bgPulse 2.5s infinite ease-in-out;
+      /* 动画速度减慢 */
+    }
+
+    /* L-5级背景动画 - 新增 */
+    .alert-siren.critical {
+      background-color: rgba(255, 0, 0, 0.3);
+      /* 保持原透明度 */
+      animation: bgPulse 1.8s infinite ease-in-out;
+      /* 原动画速度 */
+    }
+
+    /* 震动动画（仅L-5级使用） */
+    @keyframes textShake {
+      0% {
+        transform: translate(-50%, -50%) rotate(-0.5deg) translateY(-1px);
+      }
+
+      25% {
+        transform: translate(-50%, -50%) rotate(0.5deg) translateY(1px);
+      }
+
+      50% {
+        transform: translate(-50%, -50%) rotate(-0.7deg) translateY(-1px);
+      }
+
+      75% {
+        transform: translate(-50%, -50%) rotate(0.7deg) translateY(1px);
+      }
+
+      100% {
+        transform: translate(-50%, -50%) rotate(-0.5deg) translateY(-1px);
+      }
+    }
+
+    /* 背景脉冲动画 */
+    @keyframes bgPulse {
+
+      0%,
+      100% {
+        opacity: 0.6;
+        backdrop-filter: blur(2px);
+      }
+
+      50% {
+        opacity: 0.9;
+        backdrop-filter: blur(4px);
+      }
+    }
+
+    /* 文字闪烁动画保持不变 */
+    @keyframes textFlicker {
+      0% {
+        opacity: 0.9;
+        text-shadow: 0 0 15px rgba(255, 0, 0, 0.9);
+      }
+
+      50% {
+        opacity: 1;
+        text-shadow: 0 0 20px rgba(255, 0, 0, 1);
+      }
+
+      100% {
+        opacity: 0.85;
+        text-shadow: 0 0 12px rgba(255, 0, 0, 0.8);
+      }
+    }
+
+    .type-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 0.8rem;
+      margin-right: 5px;
+      margin-bottom: 5px;
+    }
+
+    .type-expr {
+      background-color: rgba(0, 255, 0, 0.2);
+      border: 1px solid var(--primary);
+      color: var(--primary);
+    }
+
+    .type-recon {
+      background-color: rgba(0, 153, 255, 0.2);
+      border: 1px solid var(--info);
+      color: var(--info);
+    }
+
+    .type-regd {
+      background-color: rgba(255, 153, 0, 0.2);
+      border: 1px solid var(--warning);
+      color: var(--warning);
+    }
+
+    .type-chim {
+      background-color: rgba(255, 0, 255, 0.2);
+      border: 1px solid #ff00ff;
+      color: #ff00ff;
+    }
+
+    .type-fres {
+      background-color: rgba(255, 0, 0, 0.2);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+    }
+
+    .type-temp {
+      background-color: rgba(153, 0, 255, 0.2);
+      border: 1px solid #9900ff;
+      color: #9900ff;
+    }
+
+    .type-shad {
+      background-color: rgba(0, 255, 255, 0.2);
+      border: 1px solid #00ffff;
+      color: #00ffff;
+    }
+
+    .range-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 0.8rem;
+      margin-right: 5px;
+      margin-bottom: 5px;
+      background-color: rgba(0, 255, 0, 0.2);
+      border: 1px solid var(--primary);
+      color: var(--primary);
+    }
+
+    .level-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 0.8rem;
+      margin-right: 5px;
+      margin-bottom: 5px;
+    }
+
+    .level-l0 {
+      background-color: rgba(0, 255, 0, 0.2);
+      border: 1px solid var(--primary);
+      color: var(--primary);
+    }
+
+    .level-l1 {
+      background-color: rgba(0, 200, 0, 0.2);
+      border: 1px solid #00c800;
+      color: #00c800;
+    }
+
+    .level-l2 {
+      background-color: rgba(200, 200, 0, 0.2);
+      border: 1px solid #c8c800;
+      color: #c8c800;
+    }
+
+    .level-l3 {
+      background-color: rgba(255, 153, 0, 0.2);
+      border: 1px solid var(--warning);
+      color: var(--warning);
+    }
+
+    .level-l4 {
+      background-color: rgba(255, 0, 0, 0.2);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+    }
+
+    .level-l5 {
+      background-color: rgba(128, 0, 128, 0.2);
+      border: 1px solid #800080;
+      color: #800080;
+    }
+
+    .tab-container {
+      margin-bottom: 20px;
+    }
+
+    .tab-buttons {
+      display: flex;
+      border-bottom: 1px solid var(--secondary);
+    }
+
+    .tab-btn {
+      background-color: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--secondary);
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .tab-btn.active {
+      border-bottom-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+      padding: 20px 0;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .record-item {
+      border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+      cursor: pointer;
+      transition: all 0.3s;
+      padding: 10px 15px;
+      /* 增加左右内边距 */
+      border-left: 3px solid transparent;
+      /* 为选中效果预留空间 */
+    }
+
+    /* 为记录项添加悬浮效果 */
+    .record-item:hover {
+      background-color: rgba(0, 255, 0, 0.05);
+      transform: translateY(-2px);
+      border-left-color: var(--primary);
+      transition: all 0.3s ease;
+
+    }
+
+    .record-header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      /* 从10px增加到20px */
+      padding: 5px 0;
+      /* 添加垂直内边距 */
+    }
+
+    .record-name {
+      min-width: 120px;
+      /* 确保名字有足够空间 */
+      font-weight: bold;
+    }
+
+    .record-date {
+      color: var(--secondary);
+      /* 使用次要颜色区分 */
+      font-size: 0.9em;
+      /* 稍微缩小字号 */
+      margin-right: auto;
+      /* 将时间推到左侧 */
+    }
+
+    .record-details {
+      display: flex;
+      font-size: 0.9rem;
+    }
+
+    .record-id {
+      margin-right: 15px;
+      color: var(--secondary);
+    }
+
+    .record-status {
+      margin-right: 15px;
+    }
+
+    .record-level {
+      margin-right: 15px;
+    }
+
+    .record-type {
+      color: var(--secondary);
+    }
+
+    /* 删除按钮样式 */
+    .delete-record-btn {
+      background: none;
+      border: none;
+      color: var(--danger);
+      font-size: 2rem;
+      /* 从1.5rem增大到2rem */
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 8px;
+      /* 增加内边距 */
+      margin-left: auto;
+      transition: all 0.2s;
+      width: 30px;
+      /* 固定宽度 */
+      height: 30px;
+      /* 固定高度 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .delete-record-btn:hover {
+      color: #ff3333;
+      /* 更鲜艳的红色 */
+      transform: scale(1.3);
+      /* 悬停放大效果更强 */
+      text-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+      /* 添加红色光晕 */
+    }
+
+    /* 为删除按钮添加按压效果 */
+    .delete-record-btn:active {
+      transform: scale(0.9);
+    }
+
+
+    .footer {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid var(--secondary);
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--secondary);
+    }
+
+    .footer a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .subject-info {
+        flex-direction: column;
+      }
+
+
+      .data-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 新增样式 - 检测详情 */
+    .test-detail {
+      margin-bottom: 15px;
+      padding: 10px;
+      background-color: rgba(0, 30, 0, 0.3);
+      border-left: 3px solid var(--secondary);
+      transition: background .25s, border-left-color .25s;
+      /* 平滑过渡 */
+    }
+
+    .test-detail:hover {
+      background-color: rgba(0, 40, 0, 0.5);
+      /* 背景微亮 */
+      border-left-color: var(--primary);
+      /* 左边线变色 */
+    }
+
+    .test-detail-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    .test-detail-name {
+      font-weight: bold;
+    }
+
+    .test-detail-status {
+      font-weight: bold;
+    }
+
+    .test-normal {
+      color: var(--primary);
+    }
+
+    .test-abnormal {
+      color: var(--danger);
+    }
+
+    .test-detail-data {
+      font-size: 0.9rem;
+      color: var(--secondary);
+    }
+
+    .test-detail-value {
+      display: flex;
+      margin-top: 5px;
+      align-items: baseline;
+      /* 改为基线对齐 */
+    }
+
+    .test-detail-label {
+      flex: 0 1 auto;
+      /* 恢复自适应宽度 */
+      max-width: 65%;
+      /* 限制最大宽度 */
+      color: var(--primary);
+      padding-right: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .test-detail-result {
+      flex: 1 0 35%;
+      /* 设置最小宽度35% */
+      word-break: break-word;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .result-section {
+      background-color: rgba(0, 30, 0, 0.3);
+      padding: 10px;
+      border: 1px solid var(--secondary);
+    }
+
+    .result-section-title {
+      border-bottom: 1px solid var(--secondary);
+      padding-bottom: 5px;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    /* ====================== */
+    /* 特效系统基础设置 */
+    /* ====================== */
+
+    /* 所有特效容器的基础样式 */
+    .hack-effect {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000;
+      display: none;
+    }
+
+    /* 永久显示的效果 */
+    #grid-pulse,
+    #glitch-overlay {
+      width: 100vw;
+      height: 100vh;
+      display: block !important;
+      z-index: 500;
+      pointer-events: none;
+    }
+
+    /* ====================== */
+    /* 网格脉冲效果 (永久显示) */
+    /* ====================== */
+
+    .grid-pulse {
+      background-image:
+        linear-gradient(rgba(0, 255, 0, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 0, 0.1) 1px, transparent 1px);
+      background-size: 50px 50px;
+      animation: pulse 3s infinite;
+      opacity: 0.3;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 0.2;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    /* ====================== */
+    /* 故障艺术效果 (永久显示) - 均衡亮度版 */
+    /* ====================== */
+
+    #glitch-overlay {
+      opacity: 0.25;
+      mix-blend-mode: screen;
+      background:
+        repeating-linear-gradient(0deg, rgba(255, 0, 0, 0.10) 0 2px, transparent 2px 4px),
+        repeating-linear-gradient(90deg, rgba(0, 255, 0, 0.10) 0 2px, transparent 2px 4px),
+        repeating-linear-gradient(180deg, rgba(0, 0, 255, 0.12) 0 2px, transparent 2px 4px);
+      animation: glitchEffect 1.2s steps(2, end) infinite,
+        colorShift 6s linear infinite,
+        flash 3s infinite;
+      clip-path: none;
+      will-change: transform, opacity, filter;
+      backface-visibility: hidden;
+      transform: translateZ(0);
+    }
+
+    /* 主抖动位移 */
+    @keyframes glitchEffect {
+      0% {
+        transform: translate(0, 0) skewX(0deg);
+        opacity: 0.22;
+      }
+
+      8% {
+        transform: translate(-10px, 4px) skewX(-2deg);
+        opacity: 0.36;
+      }
+
+      16% {
+        transform: translate(6px, -8px) skewX(2deg);
+        opacity: 0.42;
+      }
+
+      28% {
+        transform: translate(-8px, 6px) skewX(-3deg);
+        opacity: 0.30;
+      }
+
+      40% {
+        transform: translate(4px, 3px) skewX(3deg);
+        opacity: 0.26;
+      }
+
+      52% {
+        transform: translate(-6px, -5px) skewX(-4deg);
+        opacity: 0.34;
+      }
+
+      64% {
+        transform: translate(8px, 2px) skewX(4deg);
+        opacity: 0.38;
+      }
+
+      76% {
+        transform: translate(-5px, -4px) skewX(-3deg);
+        opacity: 0.32;
+      }
+
+      88% {
+        transform: translate(5px, 5px) skewX(2deg);
+        opacity: 0.28;
+      }
+
+      100% {
+        transform: translate(0, 0) skewX(0deg);
+        opacity: 0.22;
+      }
+    }
+
+
+
+    /* 色相循环 */
+    @keyframes colorShift {
+      0% {
+        filter: hue-rotate(0deg);
+      }
+
+      25% {
+        filter: hue-rotate(90deg);
+      }
+
+      50% {
+        filter: hue-rotate(180deg);
+      }
+
+      75% {
+        filter: hue-rotate(270deg);
+      }
+
+      100% {
+        filter: hue-rotate(360deg);
+      }
+    }
+
+    /* 双层分割残影 */
+    #glitch-overlay::before,
+    #glitch-overlay::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: inherit;
+      opacity: 0;
+      will-change: transform, opacity;
+      backface-visibility: hidden;
+      transform: translateZ(0);
+      mix-blend-mode: overlay;
+      animation: glitchDouble 1.4s steps(2, end) infinite;
+    }
+
+    #glitch-overlay::before {
+      clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+      animation-delay: 0.12s;
+    }
+
+    #glitch-overlay::after {
+      clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+      animation-delay: 0.24s;
+    }
+
+    /* 闪烁：亮度/对比度脉冲 */
+    @keyframes flash {
+
+      0%,
+      100% {
+        filter: brightness(1) contrast(1);
+      }
+
+      50% {
+        filter: brightness(1.2) contrast(1.3);
+      }
+    }
+
+    /* 残影位移与透明度 */
+    @keyframes glitchDouble {
+
+      0%,
+      100% {
+        transform: translate(0, 0);
+        opacity: 0;
+      }
+
+      10% {
+        transform: translate(-12px, 6px);
+        opacity: 0.45;
+      }
+
+      30% {
+        transform: translate(9px, -9px);
+        opacity: 0.50;
+      }
+
+      50% {
+        transform: translate(-10px, 7px);
+        opacity: 0.40;
+      }
+
+      70% {
+        transform: translate(11px, -6px);
+        opacity: 0.52;
+      }
+
+      90% {
+        transform: translate(-8px, 4px);
+        opacity: 0.43;
+      }
+    }
+
+    /* ====================== */
+    /* 扫描线效果 (临时) */
+    /* ====================== */
+
+    #scan-line-container {
+      display: none;
+    }
+
+    .scan-line {
+      background: linear-gradient(to bottom,
+          rgba(0, 255, 0, 0.1) 0%,
+          rgba(0, 255, 0, 0.3) 10%,
+          transparent 90%);
+      height: 4px;
+      width: 100%;
+      position: absolute;
+      top: 0;
+      animation: scan 3.5s linear infinite;
+    }
+
+    @keyframes scan {
+      0% {
+        top: 0%;
+        opacity: 0.8;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+
+      100% {
+        top: 100%;
+        opacity: 0.8;
+      }
+    }
+
+    /* ==================== */
+    /*  干擾漣漪 (局部版)    */
+    /* ==================== */
+
+    #distortion-container {
+      /* 刪掉 display:none; 由 JS 控制顯隱或直接留可見 */
+      position: fixed;
+      inset: 0;
+      /* 全屏作為波紋誕生舞台 */
+      pointer-events: none;
+      overflow: visible;
+      /* 讓擴散的尾巴不被裁掉 */
+    }
+
+    /* 一朵漣漪 */
+    .distortion-wave {
+      position: absolute;
+      width: 600px;
+      /* ① 小圓直徑，可自行調 */
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle,
+          rgba(0, 255, 0, .12) 0%,
+          rgba(0, 255, 0, .08) 50%,
+          transparent 100%);
+      opacity: 0;
+      animation: ripple 4s ease-out forwards;
+    }
+
+    @keyframes ripple {
+      0% {
+        transform: translate(-50%, -50%) scale(0.1);
+        opacity: 0;
+      }
+
+      10% {
+        opacity: 0.8;
+      }
+
+      /* 快速顯現 */
+      40% {
+        opacity: 0.6;
+      }
+
+      70% {
+        opacity: 0.3;
+      }
+
+      100% {
+        transform: translate(-50%, -50%) scale(4);
+        opacity: 0;
+      }
+
+      /* ② scale(4) ≈ 160px ×4 = 640px 直徑，足夠擴散後淡出 */
+    }
+
+
+
+    /* ====================== */
+    /* 二进制代码流效果 (临时) */
+    /* ====================== */
+
+    #binary-container {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: -1;
+      /* 如需默认隐藏，可保留 display:none; */
+    }
+
+    .binary-stream {
+      position: absolute;
+      color: rgba(0, 255, 0, .15);
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      white-space: nowrap;
+      animation: binaryFlow 20s linear infinite;
+    }
+
+    @keyframes binaryFlow {
+      0% {
+        transform: translateX(100vw);
+        opacity: 0;
+      }
+
+      10% {
+        opacity: .8;
+      }
+
+      90% {
+        opacity: .8;
+      }
+
+      100% {
+        transform: translateX(-100%);
+        opacity: 0;
+      }
+    }
+
+    #abnormal-list {
+      padding-left: 1em;
+      /* 增大左侧间距 */
+      list-style-position: outside;
+      /* 将圆点移到内容流外部 */
+      margin-left: 0.3em;
+      /* 整体微调位置 */
+      margin-top: 0.5em;
+    }
+
+    #abnormal-list li {
+      position: relative;
+      left: -0.2em;
+      /* 微调圆点对齐 */
+      margin-bottom: 0.5em;
+      /* 增加行间距 */
+    }
+
+    /* 添加按钮抖动效果 */
+    .btn-shake {
+      animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
+    }
+
+    @keyframes shake {
+
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+
+      20% {
+        transform: translateX(-5px);
+      }
+
+      40% {
+        transform: translateX(5px);
+      }
+
+      60% {
+        transform: translateX(-5px);
+      }
+
+      80% {
+        transform: translateX(5px);
+      }
+    }
+
+    /* 禁用状态样式 */
+    .init-disabled {
+      cursor: not-allowed !important;
+      opacity: 0.5 !important;
+      filter: grayscale(50%) !important;
+    }
+
+    /* 禁用悬停效果 */
+    #system-init-overlay~* button:hover,
+    #system-init-overlay~* input:hover,
+    #system-init-overlay~* select:hover {
+      background: none !important;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    /* 日志高亮样式 */
+    #system-log.init-active {
+      animation: pulseGlow 2s infinite alternate;
+    }
+
+    @keyframes pulseGlow {
+      0% {
+        box-shadow: 0 0 10px #00ff00;
+      }
+
+      100% {
+        box-shadow: 0 0 30px #00ff44;
+      }
+    }
+
+    /* 控制区域样式 */
+    .panel-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-top: 15px;
+      align-items: center;
+    }
+
+    /* 等级筛选器样式 */
+    .level-filter {
+      min-width: 180px;
+    }
+
+    .level-filter select {
+      width: 100%;
+      padding: 8px 12px;
+      background-color: #001100;
+      border: 1px solid #00aa00;
+      color: #00ff00;
+      font-family: 'Courier New', monospace;
+    }
+
+    .level-filter select:focus {
+      outline: none;
+      border-color: #00ff00;
+      box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+    }
+
+    /* 搜索框样式 */
+    .search-box {
+      display: flex;
+      flex: 1;
+      min-width: 300px;
+      gap: 10px;
+    }
+
+    #ability-search {
+      flex: 1;
+      padding: 8px 12px;
+      background: #001100;
+      border: 1px solid #00aa00;
+      color: #00ff00;
+      font-family: 'Courier New', monospace;
+      min-width: 200px;
+    }
+
+    #ability-search::placeholder {
+      color: #008800;
+    }
+
+    #search-button,
+    #reset-button {
+      padding: 8px 15px;
+      background: #003300;
+      border: 1px solid #00aa00;
+      color: #00ff00;
+      cursor: pointer;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+
+    #search-button:hover,
+    #reset-button:hover {
+      background: #005500;
+      box-shadow: 0 0 10px #00ff00;
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+      .panel-controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .search-box {
+        min-width: 100%;
+      }
+
+      .level-filter {
+        min-width: 100%;
+      }
+    }
+
+    /* === 新增样式 === */
+    /* 通过外层类名限定样式作用域 */
+    .result-subject-info {
+      /* 保持您原有的布局样式 */
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: rgba(0, 30, 0, 0.3);
+      border: 1px solid var(--secondary);
+    }
+
+    .result-subject-info .info-line {
+      display: flex;
+      align-items: center;
+    }
+
+    .result-subject-info .info-label {
+      font-weight: bold;
+      margin-right: 8px;
+      color: #4cff00;
+    }
+
+    .result-subject-info .info-value {
+      color: #66ff33;
+    }
+
+    .result-subject-info .info-separator {
+      color: #008800;
+      margin: 0 10px;
+    }
+
+    /* 新增的布局调整规则 */
+    .result-subject-info .info-spacer {
+      flex-grow: 1;
+    }
+
+    .result-subject-info .name-value {
+      text-align: right;
+    }
+
+    .result-subject-info .time-label,
+    .result-subject-info .time-value {
+      margin-left: auto;
+    }
+  </style>
+
+</head>
+
+<body>
+  <div class="hack-effect" id="scan-line-container"></div>
+  <div class="hack-effect" id="distortion-container"></div>
+  <div class="hack-effect" id="binary-container"></div>
+  <div class="hack-effect" id="grid-pulse"></div>
+  <div class="hack-effect" id="glitch-overlay"></div>
+  <div class="terminal-effect"></div>
+  <div class="scan-animation"></div>
+  <div class="alert-siren"></div>
+
+  <div class="alert-message hidden">
+    <h2 class="glitch" data-text="紧急警报">紧急警报</h2>
+    <p id="alert-message-text">检测到L-5级变异体！立即启动隔离协议！</p>
+    <button class="btn btn-danger" id="alert-ack">确认</button>
+  </div>
+
+  <div class="container">
+    <header>
+      <div class="header-overlay"></div>
+      <h1 class="glitch" data-text="MEL-13 :: PurityCore 变异检测系统">MEL-13 :: PurityCore 变异检测系统</h1>
+
+      <p>操作员: Dr. Loopia | 安全等级: Omega-9</p>
+    </header>
+
+    <div class="tab-container">
+      <div class="tab-buttons">
+        <button class="tab-btn active" data-tab="scan">检测控制台</button>
+        <button class="tab-btn" data-tab="database">变异图鉴</button>
+        <button class="tab-btn" data-tab="records">检测记录</button>
+      </div>
+
+      <div class="tab-content active" id="scan-tab">
+        <div class="grid">
+          <div class="panel">
+            <div class="panel-header">
+              <h3>检测对象信息</h3>
+            </div>
+            <div class="form-group">
+              <label for="subject-name">姓名</label>
+              <input type="text" id="subject-name" autocomplete="off" placeholder="输入检测对象姓名">
+            </div>
+            <div class="form-group">
+              <label for="subject-gender">性别</label>
+              <select id="subject-gender">
+                <option value="male">男性</option>
+                <option value="female">女性</option>
+                <option value="other">其他</option>
+                <option value="unknown">未知</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="subject-id">识别号</label>
+              <input type="text" id="subject-id" autocomplete="off" placeholder="输入检测对象识别号">
+            </div>
+            <button class="btn" id="start-scan">启动检测序列</button>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>检测状态</h3>
+              <span id="scan-status">待机</span>
+            </div>
+            <div id="subject-display" class="hidden">
+              <div class="subject-info">
+                <div class="subject-details">
+                  <div class="subject-id">ID: <span id="display-id">-</span></div>
+                  <div class="subject-name"><span id="display-name">-</span></div>
+                  <div class="subject-meta">性别: <span id="display-gender">-</span> | 检测时间: <span
+                      id="display-time">-</span></div>
+                </div>
+              </div>
+              <div class="progress-container" id="scan-progress-container">
+                <!-- 小块将由 JS 插入 -->
+              </div>
+              <div class="scan-steps-container" id="scan-steps">
+                <div class="scan-step" id="step-1">
+                  <div class="scan-title">
+                    <span class="scan-name">基因序列异常扫描</span>
+                    <span class="scan-result result-normal" id="result-1">正常</span>
+                  </div>
+                  <div class="progress-container">
+                    <div class="progress-bar" id="progress-1"></div>
+                  </div>
+                </div>
+                <div class="scan-step" id="step-2">
+                  <div class="scan-title">
+                    <span class="scan-name">神经电图与脑区活性检测</span>
+                    <span class="scan-result result-normal" id="result-2">正常</span>
+                  </div>
+                  <div class="progress-container">
+                    <div class="progress-bar" id="progress-2"></div>
+                  </div>
+                </div>
+                <div class="scan-step" id="step-3">
+                  <div class="scan-title">
+                    <span class="scan-name">血液反应与代谢异常检测</span>
+                    <span class="scan-result result-normal" id="result-3">正常</span>
+                  </div>
+                  <div class="progress-container">
+                    <div class="progress-bar" id="progress-3"></div>
+                  </div>
+                </div>
+                <div class="scan-step" id="step-4">
+                  <div class="scan-title">
+                    <span class="scan-name">感知刺激与微反应诱发</span>
+                    <span class="scan-result result-normal" id="result-4">正常</span>
+                  </div>
+                  <div class="progress-container">
+                    <div class="progress-bar" id="progress-4"></div>
+                  </div>
+                </div>
+                <div class="scan-step" id="step-5">
+                  <div class="scan-title">
+                    <span class="scan-name">情绪剖面与恐惧反馈监测</span>
+                    <span class="scan-result result-normal" id="result-5">正常</span>
+                  </div>
+                  <div class="progress-container">
+                    <div class="progress-bar" id="progress-5"></div>
+                  </div>
+                </div>
+                <div class="scan-step" id="step-6">
+                  <div class="scan-title">
+                    <span class="scan-name">共振频率测试</span>
+                    <span class="scan-result result-normal" id="result-6">正常</span>
+                  </div>
+                  <div class="progress-container">
+                    <div class="progress-bar" id="progress-6"></div>
+                  </div>
+                </div>
+                <div class="scan-step" id="step-7">
+                  <div class="scan-title">
+                    <span class="scan-name">记忆嵌入与虚拟意识测试</span>
+                    <span class="scan-result result-normal" id="result-7">正常</span>
+                  </div>
+                  <div class="progress-container">
+                    <div class="progress-bar" id="progress-7"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" id="result-panel" style="display: none;">
+          <div class="panel-header">
+            <h3>检测结果</h3>
+          </div>
+          <div id="result-content">
+            <div id="normal-result" class="hidden">
+              <div class="alert alert-info">
+                <span class="status-indicator status-normal"></span>
+                <strong>检测完成:</strong> 对象未显示任何变异迹象。分类为 <strong>L-0 零级因子</strong>。
+              </div>
+              <p>所有检测参数均在正常范围内。建议定期复查以确保稳定性。</p>
+
+              <div class="result-grid">
+                <div class="result-section">
+                  <div class="result-section-title">检测摘要</div>
+                  <p>所有7项检测均显示正常结果，未检测到任何异常变异迹象。</p>
+                </div>
+                <div class="result-section">
+                  <div class="result-section-title">建议</div>
+                  <p>• 12个月内进行常规复查</p>
+                  <p>• 无需特殊监管措施</p>
+                  <p>• 继续观察日常行为</p>
+                </div>
+              </div>
+            </div>
+
+            <div id="abnormal-result" class="hidden">
+              <div class="alert alert-warning" id="abnormal-alert">
+                <span class="status-indicator status-warning"></span>
+                <strong>检测完成:</strong> 对象显示变异迹象。分类为 <strong id="abnormal-level">L-1 Alpha级</strong>。
+              </div>
+
+              <h4>变异详情</h4>
+              <p>检测到以下异常参数:</p>
+              <ul id="abnormal-list">
+                <!-- 动态生成异常检测项 -->
+              </ul>
+
+              <div id="test-details">
+                <!-- 动态生成检测详情 -->
+              </div>
+
+              <div id="ability-details">
+                <h4>变异能力分析</h4>
+                <p id="ability-desc">未识别到明确能力表现。</p>
+
+                <div class="result-grid">
+                  <div class="result-section">
+                    <div class="result-section-title">能力属性评估</div>
+                    <div id="ability-attributes">
+                      <!-- 动态生成能力属性 -->
+                    </div>
+                  </div>
+
+                  <div class="result-section">
+                    <div class="result-section-title">分类信息</div>
+                    <div id="ability-classification">
+                      <!-- 动态生成分类信息 -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="btn" id="save-result" style="margin-top: 20px;">保存检测结果</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <h3>系统日志</h3>
+            <button class="btn" id="clear-log">清除日志</button>
+          </div>
+          <div id="system-log">
+
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="database-tab">
+        <div class="panel">
+          <div class="panel-header">
+            <h3>变异能力图鉴</h3>
+            <div class="panel-controls">
+              <!-- 等级筛选器 -->
+              <div class="level-filter">
+                <select id="level-filter">
+                  <option value="all">全部等级</option>
+                  <option value="L-1">L-1 - Alpha级</option>
+                  <option value="L-2">L-2 - Beta级</option>
+                  <option value="L-3">L-3 - Gamma级</option>
+                  <option value="L-4">L-4 - Delta级</option>
+                  <option value="L-5">L-5 - Omega级</option>
+                </select>
+              </div>
+
+              <!-- 搜索框 -->
+              <div class="search-box">
+                <input type="text" id="ability-search" autocomplete="off" placeholder="输入ID、名称或特征进行搜索...">
+                <button id="search-button">搜索</button>
+                <button id="reset-button">重置</button>
+              </div>
+            </div>
+          </div>
+          <div class="data-grid" id="ability-grid">
+            <!-- 动态生成能力卡片 -->
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content" id="records-tab">
+        <div class="panel">
+          <div class="panel-header">
+            <h3>检测记录</h3>
+            <button class="btn" id="clear-records">清空记录</button>
+          </div>
+          <div id="records-list">
+            <!-- 动态生成记录列表 -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>MEL-13 机密设施 | 未经授权访问将被视为叛国罪</p>
+      <p>© 2187 全球生物安全委员会 | <a href="#">协议与条款</a> | <a href="#">安全指南</a></p>
+    </div>
+  </div>
+  <script>
+    // 数据库 - 变异能力图鉴
+    // 数据库 - 变异能力图鉴
+    // 数据库 - 变异能力图鉴
+    const abilitiesDatabase = [
+      {
+        id: "AB-001",
+        name: "局部热流畸变",
+        enName: "Local Thermal Flux Anomaly",
+        level: "L-3",
+        spawnWeight: 10,
+        type: "G1-EXPR",
+        range: "LOCAL",
+        desc: "对象TRPV1基因的c.1879G>C和c.2021A>T复合突变导致热敏神经元阈值异常降低。变异表现为：①手掌皮肤可产生120-180℃高温区（持续≤30秒） ②指尖接触使200g水在3分钟内降温至0℃。检测到线粒体嵴结构畸变（电镜#EM-标准）和UCP1蛋白异常聚集（Western blot#WB-标准）。",
+        attributes: {
+          "AEI": 45,    // 匹配180℃高温区
+          "CDP": 40,    // 需基础操控精度
+          "PCC": 35,    // 热残留20分钟
+          "EEV": 40,    // 中等变异风险
+          "NEI": 50,    // 神经元阈值异常
+          "VRL": 55,    // 中等暴走概率
+          "LTV": 30,    // 明显热信号
+          "STR": 45,    // 环境触发可能
+          "SSI": 25     // 低协同风险
+        },
+        abnormalTests: [1, 3, 5],
+        abnormalRates: [0.7, 0.5, 0.6],
+        testDetails: {
+          1: { // 基因序列异常扫描
+            data: {
+              "TRPV1突变": "c.1879G>C/c.2021A>T",
+              "热敏神经元阈值": "降低至正常值40%",
+              "线粒体嵴结构": "异常折叠（电镜#EM-775）"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "皮肤热辐射效率": "+2.3SD",
+              "水分降温曲线": "斜率-0.11g/s",
+              "金属接触氧化率": "较对照组高300%"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "下丘脑神经元": "温度敏感度↓40%",
+              "交感神经放电": "静息状态↑40%",
+              "应激反应阈值": "降低至正常值35%"
+            }
+          }
+        }
+      },
+
+      // AB-002: 神经脉冲干扰场 (已修复)
+      {
+        id: "AB-002",
+        name: "神经脉冲干扰场",
+        enName: "Neural Pulse Interference Field",
+        level: "L-4",
+        spawnWeight: 5,
+        type: "G3-REGD",
+        range: "NEURO",
+        desc: "对象前额叶皮层检测到异常θ波振荡（峰值12.7Hz），形成半径15米神经干扰场。场强0.4V/m（基准值0.05V/m）导致：①海马体神经同步性下降40%（LFP#NPH-44）②杏仁核激活阈值降低③丘脑皮质共振偏移7.8%。检测到GABA能抑制系统功能衰减（组织活检#NH-883）。",
+        attributes: {
+          "AEI": 70,    // 中等能量神经场
+          "CDP": 60,    // 中等控制需求
+          "PCC": 55,    // 神经残留中等
+          "EEV": 50,    // 中等突变风险
+          "NEI": 75,    // 较强神经侵蚀
+          "VRL": 75,    // 高失控风险
+          "LTV": 45,    // 中等隐匿性
+          "STR": 70,    // 较高应激触发
+          "SSI": 45     // 中等协同风险
+        },
+        abnormalTests: [2, 4, 6],
+        abnormalRates: [0.85, 0.7, 0.8],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "θ波功率密度": "12.7Hz@0.8μV²/Hz（正常0.2）",
+              "神经同步指数": "0.45（正常0.75-0.9）",
+              "海马体尖波": "密度12/min（正常<2）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "痛觉阈值": "提高200%",
+              "瞳孔反射延迟": "420ms（正常200ms）",
+              "皮肤电导波动": "±45%（正常±15%）"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "场强梯度": "0.4V/m@15m半径",
+              "谐波失真": "THD 18%（正常<5%）",
+              "共振耦合": "7.83Hz相位偏移28°"
+            }
+          }
+        }
+      },
+
+      // AB-003: 分子相位偏移 (已修复)
+      {
+        id: "AB-003",
+        name: "分子相位偏移",
+        enName: "Molecular Phase Shifting",
+        level: "L-3",
+        spawnWeight: 15,
+        type: "G2-RECON",
+        range: "STRUCT",
+        desc: "对象COL1A1基因c.3256_3257insT突变导致胶原蛋白β链构象异常（X射线晶体#XRC-332），赋予物质相位偏移能力。表现为：①使自身或接触物体分子键角偏移12-15°（持续≤17秒） ②可穿透≤30cm厚非晶态物质 ③局部密度提升至2.7g/cm³（正常1.3）。能力缺陷包括：相位同步失败率23%（实验#EXP-772）和胶原纤维断裂（电镜#EM-441）。",
+        attributes: {
+          "AEI": 8,    // 极低能量破坏（功能性能力）
+          "CDP": 74,    // 极高操控依赖（精确控制相位）
+          "PCC": 20,    // 低持续污染（残留效应弱）
+          "EEV": 17,    // 低突变风险
+          "NEI": 66,    // 中高神经侵蚀（空间感知负担）
+          "VRL": 70,    // 高失控风险（23%失败率）
+          "LTV": 60,    // 中高隐匿性（穿透隐匿）
+          "STR": 50,    // 中高应激触发
+          "SSI": 30     // 低协同风险
+        },
+        abnormalTests: [1, 2, 7],
+        abnormalRates: [0.8, 0.65, 0.7],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "COL1A1突变": "c.3256_3257insT",
+              "胶原蛋白构象": "β链异常折叠",
+              "分子键角偏移": "12-15°"
+            }
+          },
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "相位同步失败率": "23%（样本#EXP-772）",
+              "物质穿透深度": "30cm（硅基材料）",
+              "密度提升极限": "2.7g/cm³"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "空间感知精度": "误差±0.3度",
+              "虚拟意识同步": "延迟18ms",
+              "记忆重构效率": "提升45%"
+            }
+          }
+        }
+      },
+
+      // AB-004: 生物电场畸变 (已修复)
+      {
+        id: "AB-004",
+        name: "生物电场畸变",
+        enName: "Bio-Electric Field Distortion",
+        level: "L-5",
+        spawnWeight: 1,
+        type: "G4-CHIM",
+        range: "PHASE",
+        desc: "对象骨骼中检测到压电晶体异常增生（XRD#XRD-881），产生50kV/m生物电场（基准值0.2V/m）。该场导致：①电子设备功能崩溃（半径1km）②光线折射率异常（Δn=0.38）③局部重力波动±0.12g（参见事件2187-05）。与地磁共振系数0.93（太阳风暴期间达0.99），场强随地磁Kp指数线性增长（斜率1.8kV/m·Kp⁻¹）。",
+        attributes: {
+          "AEI": 90,    // 极高能量破坏
+          "CDP": 20,    // 极低操控依赖
+          "PCC": 90,    // 极高持续污染
+          "EEV": 85,    // 极高突变风险
+          "NEI": 45,    // 低神经侵蚀
+          "VRL": 98,    // 极高失控风险
+          "LTV": 10,    // 极低隐匿性（场效应明显）
+          "STR": 95,    // 极高应激触发
+          "SSI": 95     // 高协同风险
+        },
+        abnormalTests: [3, 4, 5, 6, 7],
+        abnormalRates: [0.98, 0.95, 0.92, 0.99, 0.88],
+        testDetails: {
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "骨压电系数": "186pC/N（正常2.7）",
+              "血液电离度": "电导率18S/m（正常0.7）",
+              "红细胞变形": "椭球率0.38（正常0.75）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "感官阈值": "超出量程（>10kV）",
+              "神经传导": "速度波动±78%",
+              "反射延迟": "非线性响应"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "情绪熵值": "H=4.2（正常0.8）",
+              "皮质醇分泌": "无规律震荡",
+              "杏仁核响应": "反向激活"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "场强峰值": "50kV/m（Kp9）",
+              "重力扰动": "Δg=±0.12g",
+              "折射率偏移": "Δn=0.38"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "地磁耦合": "相关系数0.93",
+              "设备失效半径": "1.2km（Kp≥7）",
+              "谐波失真": "THD 98%"
+            }
+          }
+        }
+      },
+
+      // AB-005: 时间流感知 (已修复)
+      {
+        id: "AB-005",
+        name: "时间流感知",
+        enName: "Temporal Stream Perception",
+        level: "L-3",
+        spawnWeight: 10,
+        type: "G6-TEMP",
+        range: "INTRA",
+        desc: "对象CRY1基因c.1345A>G和PER2基因c.2287delC复合突变导致昼夜节律核心组件功能紊乱（基因分析#GT-772）。表现为：①主观时间感知流速降至0.1倍正常值（EEG#EEG-881）②运动神经传导速度仅提升至2.1倍（EMG#EMG-332）③海马体CA1区时间记忆单元异常增生（MRI#MRI-554）。神经运动失调发生率78%（实验#EXP-992），前庭-视觉系统冲突导致空间定向障碍。",
+        attributes: {
+          "AEI": 5,     // 极低能量破坏
+          "CDP": 70,    // 高操控依赖
+          "PCC": 25,    // 中低持续污染
+          "EEV": 36,    // 中等突变风险
+          "NEI": 40,    // 中高神经侵蚀
+          "VRL": 40,    // 中高失控风险
+          "LTV": 89,    // 高隐匿性（内部感知）
+          "STR": 40,    // 中高应激触发
+          "SSI": 35     // 低协同风险
+        },
+        abnormalTests: [2, 5, 7],
+        abnormalRates: [0.8, 0.7, 0.75],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "CRY1突变": "c.1345A>G（rs28936679）",
+              "PER2缺失": "c.2287delC",
+              "皮质振荡频率": "θ波4.2Hz（正常7.5Hz）"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "时间感知比": "主观:客观=10:1",
+              "运动神经延迟": "45ms（正常100ms）",
+              "决策错误率": "提升220%"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "海马体CA1区": "体积↑38%（MRI#MRI-554）",
+              "前庭-视觉冲突": "发生率78%",
+              "空间定向错误": "角度偏差±22°"
+            }
+          }
+        }
+      },
+
+      // AB-006: 暗物质生物同化 (已修复)
+      {
+        id: "AB-006",
+        name: "暗物质生物同化",
+        enName: "Dark Matter Bio-Assimilation",
+        level: "L-5",
+        spawnWeight: 1,
+        type: "G4-CHIM",
+        range: "BIO-MIMIC",
+        desc: "对象体内检测到3.7%异常物质（质谱#MS-772），其物理特性符合暗物质模型。该物质与生物系统形成不稳定共生关系，导致：①局部引力异常（Δg=±0.15g） ②接触物质解体（转换率18%） ③DNA含17个未知基因片段（测序#SEQ-445）。当对象皮质醇>200ng/mL或环境电磁干扰>50μT时，可能触发半径50米内引力崩溃（事故#IN-229）。",
+        attributes: {
+          "AEI": 98,    // 极高能量湮灭
+          "CDP": 15,    // 极低操控依赖
+          "PCC": 95,    // 极高持续污染
+          "EEV": 90,    // 极高突变风险
+          "NEI": 99,    // 极高神经侵蚀
+          "VRL": 99,    // 极高失控风险
+          "LTV": 60,    // 较高隐匿性
+          "STR": 98,    // 极高应激触发
+          "SSI": 75     // 高协同风险
+        },
+        abnormalTests: [1, 2, 3, 4, 5, 6, 7],
+        abnormalRates: [1, 1, 1, 1, 1, 1, 1],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "未知基因": "17段",
+              "DNA密度": "2.1g/cm³（正常1.7）",
+              "基因编码": "非标准模式"
+            }
+          },
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "神经同步异常": "相干性↓65%",
+              "脑电频率偏移": "主频偏移3.7Hz",
+              "意识熵值": "H=7.2（正常1.8）"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "异常物质占比": "3.7%",
+              "物质特性": "低电磁响应",
+              "共生稳定性": "波动系数0.45"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "引力异常": "Δg=±0.15g",
+              "物质转换": "效率18%",
+              "能量释放": "8.7×10¹⁶J/kg"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "皮质醇阈值": ">200ng/mL触发",
+              "恐惧反应": "缺失（发生率98%）",
+              "应激激素": "异常波动"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "场强异常": "0.8V/m@25m",
+              "时空畸变": "可测量",
+              "环境响应": "Kp指数相关"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "神经绝缘": "阻抗↑450%",
+              "痛觉缺失": "阈值>10kV",
+              "意识抵抗": "完全"
+            }
+          }
+        }
+      },
+
+      // AB-007: 局部介电调控 (已修复)
+      {
+        id: "AB-007",
+        name: "局部介电调控",
+        enName: "Local Dielectric Control",
+        level: "L-3",
+        spawnWeight: 10,
+        type: "G5-FRES",
+        range: "PHASE",
+        desc: "对象KCNJ2基因c.1879G>C突变导致钾离子通道蛋白构象异常（电镜#EM-775）。该变异使细胞膜获得介电常数调控能力（εr=2~80），表现为：①接触面摩擦系数降低至0.02（正常0.6）②潮湿环境中产生≤5mA定向电流③对1-10GHz电磁波衰减率提升40%（测试#RF-332）。副作用包括汗液电解质失衡（Na⁺/K⁺比例异常）和心电图QT间期延长（ECG#EC-882）。",
+        attributes: {
+          "AEI": 25,    // 低能量破坏
+          "CDP": 55,    // 中高操控依赖
+          "PCC": 35,    // 中低持续污染
+          "EEV": 40,    // 低突变风险
+          "NEI": 45,    // 中低神经侵蚀
+          "VRL": 50,    // 中等失控风险
+          "LTV": 30,    // 低隐匿性（电磁特征明显）
+          "STR": 45,    // 中等应激触发
+          "SSI": 25     // 低协同风险
+        },
+        abnormalTests: [2, 3, 6],
+        abnormalRates: [0.7, 0.65, 0.75],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "KCNJ2突变": "c.1879G>C",
+              "皮肤阻抗": "动态变化(10³~10⁶Ω)",
+              "动作电位": "方波化（脉宽0.8ms）"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "汗液电导率": "波动±40%",
+              "红细胞膜电位": "-85mV（正常-90mV）",
+              "血浆介电常数": "εr=75（正常78）"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "EM场畸变": "局部检测",
+              "趋肤效应": "深度减少30%",
+              "微波反射率": "85%→55%"
+            }
+          }
+        }
+      },
+
+      // AB-008: 光学伪装 (已修复)
+      {
+        id: "AB-008",
+        name: "光学伪装",
+        enName: "Optical Camouflage",
+        level: "L-3",
+        spawnWeight: 10,
+        type: "G2-RECON",
+        range: "STRUCT",
+        desc: "对象COL1A1基因c.2287G>T突变导致胶原蛋白纤维形成异常光栅结构（电镜#EM-445）。能力激活时，通过调控真皮层黑色素分布（黑色素浓度可降至0.3mg/cm³）和胶原纤维排列（折射率n=1.32→1.08），实现90%可见光波段透明度（380-780nm）。持续时间≤180秒，期间：①紫外线吸收率提升300% ②红外特征仅削弱40% ③运动时产生轻微光畸变。",
+        attributes: {
+          "AEI": 2,
+          "CDP": 65,
+          "PCC": 10,
+          "EEV": 35,
+          "NEI": 15,
+          "VRL": 14,
+          "LTV": 92,
+          "STR": 35,
+          "SSI": 30
+        },
+        abnormalTests: [1, 4],
+        abnormalRates: [0.75, 0.65],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "COL1A1突变": "c.2287G>T",
+              "胶原折射率": "n=1.08（正常1.32）",
+              "黑色素调控": "0.3-5.2mg/cm³（可控）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "可见光透过率": "90%（380-780nm）",
+              "红外抑制率": "40%（8-14μm波段）",
+              "紫外线吸收": "UVA↑250%/UVB↑320%"
+            }
+          }
+        }
+      },
+
+      // AB-009: 光合增强 (已修复)
+      {
+        id: "AB-009",
+        name: "光合增强",
+        enName: "Photosynthetic Enhancement",
+        level: "L-1",
+        spawnWeight: 50,
+        type: "G7-SHAD",
+        range: "INTRA",
+        desc: "对象皮肤检测到类叶绿体结构（电镜#EM-112），经基因分析确认其为植物源性DNA片段（测序#SEQ-445）。该变异使对象：①在充足光照下可维持基础代谢7天（需每日摄入500ml水分）②视网膜出现反光层（类似猫眼），在低于10lux照度下视觉敏感度提升150%。副作用包括强光（>10000lux）下视觉功能暂时性丧失（报告#OPT-332）和皮肤色素沉积异常（活检#SK-778）。",
+        attributes: {
+          "AEI": 5,     // 极低能量破坏
+          "CDP": 25,    // 低操控依赖
+          "PCC": 15,    // 低持续污染
+          "EEV": 10,    // 极低突变风险
+          "NEI": 20,    // 低神经侵蚀
+          "VRL": 5,     // 极低失控风险
+          "LTV": 35,    // 中低隐匿性
+          "STR": 15,    // 低应激触发
+          "SSI": 10     // 极低协同风险
+        },
+        abnormalTests: [1, 3],
+        abnormalRates: [0.6, 0.5],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "叶绿素基因": "CHL-B片段激活",
+              "细胞器结构": "类叶绿体（#EM-112）",
+              "DNA溯源": "植物源性片段"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "光照代谢效率": "基础代谢维持率85%",
+              "水分需求": "500ml/日（正常2000ml）",
+              "视觉敏感度": "150%提升（<10lux）"
+            }
+          }
+        }
+      },
+
+      // AB-010: 微气流操控 (已修复)
+      {
+        id: "AB-010",
+        name: "微气流操控",
+        enName: "Micro-Aerokinesis",
+        level: "L-1",
+        spawnWeight: 60,
+        type: "G5-FRES",
+        range: "EMIT",
+        desc: "对象手掌表皮检测到异常纤毛结构（密度380根/mm²，电镜#EM-225），通过18-22kHz振动产生局部气流（电镜#EM-225）。最大气流速度8km/h（测试#AER-332），有效范围≤10cm。环境湿度>50%时效率下降60%（记录#HYG-445），干燥环境（<30%RH）下可产生微弱冷却效应（ΔT=-1.5℃）。长期使用导致表皮角质层增厚（活检#SK-112）。",
+        attributes: {
+          "AEI": 3,     // 极低能量破坏
+          "CDP": 40,    // 中低操控依赖
+          "PCC": 5,     // 极低持续污染
+          "EEV": 15,    // 极低突变风险
+          "NEI": 10,    // 极低神经侵蚀
+          "VRL": 8,     // 极低失控风险
+          "LTV": 25,    // 低隐匿性
+          "STR": 20,    // 低应激触发
+          "SSI": 15     // 极低协同风险
+        },
+        abnormalTests: [2, 4],
+        abnormalRates: [0.55, 0.45],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "纤毛密度": "380根/mm²（正常100）",
+              "振动频率": "18-22kHz（超声范围）",
+              "湿度敏感": "效率↓60%（RH>50%）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "气流速度": "8km/h（#AER-332）",
+              "冷却效应": "ΔT=-1.5℃（RH<30%）",
+              "有效范围": "≤10cm直径"
+            }
+          }
+        }
+      },
+
+      // AB-011: 低光视觉增强 (已修复)
+      {
+        id: "AB-011",
+        name: "低光视觉增强",
+        enName: "Low-Light Visual Augmentation",
+        level: "L-1",
+        spawnWeight: 70,
+        type: "G1-EXPR",
+        range: "INTRA",
+        desc: "对象视网膜杆状细胞密度增加35%（组织切片#TS-112），视紫红质浓度达正常值450%（光谱分析#SP-445）。表现为：在低于10lux照度下视觉敏锐度提升30%（测试#VIS-332），强光（>3000lux）下视觉功能下降40%（报告#OPT-778）。视神经信号传导速度提升15%（电生理#EP-992），但色彩辨别阈值上升25%（色觉测试#COL-223）。",
+        attributes: {
+          "AEI": 2,     // 极低能量破坏
+          "CDP": 25,    // 低操控依赖
+          "PCC": 10,    // 低持续污染
+          "EEV": 15,    // 极低突变风险
+          "NEI": 20,    // 低神经侵蚀
+          "VRL": 5,     // 极低失控风险
+          "LTV": 35,    // 中低隐匿性
+          "STR": 15,    // 低应激触发
+          "SSI": 10     // 极低协同风险
+        },
+        abnormalTests: [1, 5],
+        abnormalRates: [0.65, 0.5],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "杆状细胞密度": "+35%（#TS-112）",
+              "视紫红质浓度": "450%（正常100%）",
+              "视锥细胞抑制": "活性↓20%"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "低光敏锐度": "+30%（<10lux，#VIS-332）",
+              "强光功能下降": "-40%（>3000lux，#OPT-778）",
+              "色觉阈值": "↑25%（#COL-223）"
+            }
+          }
+        }
+      },
+
+      // AB-012: 亚低温适应性 (已修复)
+      {
+        id: "AB-012",
+        name: "亚低温适应性",
+        enName: "Subzero Thermal Adaptation",
+        level: "L-1",
+        spawnWeight: 65,
+        type: "G1-EXPR",
+        range: "INTRA",
+        desc: "对象UCP1基因c.2287A>G突变导致解耦联蛋白过度表达（Western blot#WB-445），棕色脂肪组织活性提升280%（PET扫描#PET-332）。表现为：①在0-10℃环境维持36.5±0.3℃核心体温（正常波动±1℃）②基础代谢率提升至130%（正常100%）③-5℃环境下可持续暴露≤2小时（实验#CRY-112）。副作用包括：环境温度>25℃时排汗量增加300%（记录#SWT-778）和热休克蛋白表达抑制（HSP70↓60%，活检#BIO-992）。",
+        attributes: {
+          "AEI": 5,     // 极低能量破坏
+          "CDP": 30,    // 低操控依赖
+          "PCC": 15,    // 低持续污染
+          "EEV": 20,    // 极低突变风险
+          "NEI": 15,    // 极低神经侵蚀
+          "VRL": 10,    // 极低失控风险
+          "LTV": 25,    // 低隐匿性
+          "STR": 20,    // 低应激触发
+          "SSI": 15     // 极低协同风险
+        },
+        abnormalTests: [3, 6],
+        abnormalRates: [0.6, 0.55],
+        testDetails: {
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "UCP1突变": "c.2287A>G",
+              "棕色脂肪活性": "280%（#PET-332）",
+              "基础代谢率": "130%（正常100%）"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "核心体温稳定性": "36.5±0.3℃（0-10℃）",
+              "冷暴露极限": "120分钟@-5℃（#CRY-112）",
+              "热应激反应": "排汗量↑300%（>25℃）"
+            }
+          }
+        }
+      },
+
+      // AB-013: 嗅觉受体扩增 (已修复)
+      {
+        id: "AB-013",
+        name: "嗅觉受体扩增",
+        enName: "Olfactory Receptor Amplification",
+        level: "L-1",
+        spawnWeight: 55,
+        type: "G1-EXPR",
+        range: "NEURO",
+        desc: "对象OR52D1基因c.334G>A突变导致嗅觉受体表达异常（测序#SEQ-112），嗅球体积增大8%（MRI#MRI-445）。表现为：①气味检测阈值降至1ppm（正常5ppm）②特定气味（腐胺、尸胺）敏感度提升200%（测试#OLF-332）③气味记忆保留时间延长至72小时（正常24小时）。副作用包括：复杂气味环境信息过载发生率65%（记录#NEU-778）和偏头痛发作频率增加300%（EEG#EEG-992）。",
+        attributes: {
+          "AEI": 3,     // 极低能量破坏
+          "CDP": 25,    // 低操控依赖
+          "PCC": 15,    // 低持续污染
+          "EEV": 20,    // 极低突变风险
+          "NEI": 30,    // 低神经侵蚀
+          "VRL": 10,    // 极低失控风险
+          "LTV": 35,    // 中低隐匿性
+          "STR": 25,    // 低应激触发
+          "SSI": 15     // 极低协同风险
+        },
+        abnormalTests: [1, 7],
+        abnormalRates: [0.6, 0.45],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "OR52D1突变": "c.334G>A",
+              "嗅球体积": "增大8%（#MRI-445）",
+              "受体密度": "增加40%（#SEQ-112）"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "气味阈值": "1ppm（正常5ppm）",
+              "信息过载率": "65%（复杂环境，#NEU-778）",
+              "偏头痛频率": "3.2次/周（正常0.8，#EEG-992）"
+            }
+          }
+        }
+      },
+
+      // AB-016: 液态金属操控 (已修复)
+      {
+        id: "AB-016",
+        name: "液态金属操控",
+        enName: "Liquid Metal Manipulation",
+        level: "L-4",
+        spawnWeight: 3,
+        type: "G4-CHIM",
+        range: "STRUCT",
+        desc: "对象运动皮层检测到异常神经信号编码（fMRI#FM-445），可通过生物电信号操控≥60℃的液态金属。表现为：①将接触的液态金属塑造成仿生构装体（最大3具） ②维持20分钟需持续消耗血糖（每具5mmol/L） ③构装体执行预设行为模式（战斗协议#CP-112）。基因测序显示铁代谢相关基因与外星样本TR-7B存在72%相似度（测序#SEQ-445），但无分泌金属能力。",
+        attributes: {
+          "AEI": 65,    // 依赖环境金属
+          "CDP": 75,    // 高操控依赖
+          "PCC": 25,    // 低持续污染
+          "EEV": 45,    // 中低突变风险
+          "NEI": 60,    // 中高神经侵蚀
+          "VRL": 70,    // 中高失控风险
+          "LTV": 35,    // 中低隐匿性
+          "STR": 75,    // 高应激触发
+          "SSI": 30     // 中低协同风险
+        },
+        abnormalTests: [1, 3, 6],
+        abnormalRates: [0.8, 0.65, 0.55],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "神经信号编码": "异常β波（fMRI#FM-445）",
+              "运动皮层激活": "区域扩大38%",
+              "金属亲和性": "铁/汞/镓特异"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "血糖消耗": "5mmol/L/具（正常4-6）",
+              "代谢率": "提升220%（#MET-332）",
+              "肾上腺素": "峰值8.2nmol/L（正常0.5）"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "构装体强度": "屈服强度120MPa",
+              "电磁特征": "可追踪（#EM-112）",
+              "热信号": "IR特征明显"
+            }
+          }
+        }
+      },
+
+      // AB-017: 矢量场操控 (已修复)
+      {
+        id: "AB-017",
+        name: "矢量场操控",
+        enName: "Vector Field Manipulation",
+        level: "L-5",
+        spawnWeight: 1,
+        type: "G5-FRES",
+        range: "PHASE",
+        desc: "对象顶叶皮层检测到异常空间拓扑结构（fMRI#FM-775），可直接操控半径30米内的物理矢量场。表现为：①修改接触面摩擦系数（μ=0.001-0.8）②调整动量传递效率（η=0.5-1.2）③扭曲局部引力矢量（Δg=±0.2g）。每次操作产生空间曲率波动（ΔR=0.3%，LIGO#LG-112），累计3次操作引发不可逆时空褶皱（事件#EV-229）。EEG显示异常θ-γ波段耦合（相干值0.85，#EEG-445）。",
+        attributes: {
+          "AEI": 92,    // 极高能量湮灭
+          "CDP": 95,    // 极高操控依赖
+          "PCC": 90,    // 极高持续污染
+          "EEV": 85,    // 极高突变风险
+          "NEI": 98,    // 极高神经侵蚀
+          "VRL": 99,    // 极高失控风险
+          "LTV": 5,     // 极低隐匿性
+          "STR": 95,    // 极高应激触发
+          "SSI": 80     // 高协同风险
+        },
+        abnormalTests: [2, 4, 6, 7],
+        abnormalRates: [1, 1, 1, 1],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "皮层拓扑": "异常分形维度（#FM-775）",
+              "θ-γ耦合": "相干值0.85（#EEG-445）",
+              "空间感知": "11D映射"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "摩擦系数": "可控范围0.001-0.8",
+              "动量传递": "效率η=0.5-1.2",
+              "引力修正": "Δg=±0.2g"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "空间曲率": "ΔR=0.3%/操作（#LG-112）",
+              "时空褶皱": "累计3次（#EV-229）",
+              "真空涨落": "异常+3.8σ"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "因果关联": "逆向模式",
+              "记忆熵值": "H=5.8（基准0.8）",
+              "意识投影": "11D结构"
+            }
+          }
+        }
+      },
+
+      // AB-018: 引力场操控 (已修复)
+      {
+        id: "AB-018",
+        name: "引力场操控",
+        enName: "Gravitational Field Manipulation",
+        level: "L-5",
+        spawnWeight: 1,
+        type: "G5-FRES",
+        range: "PHASE",
+        desc: "对象体内检测到异常高密度物质沉积（CT#CT-775），可在半径50米内产生0.8-1.2g的引力场变化。每次操作导致：①局部气压波动±15%（气压计#BR-112）②地面微震动（里氏0.8级，#SEIS-445）③电磁干扰（场强0.5V/m，#EM-332）。为承受反作用力，对象骨骼密度达8.2g/cm³（X光#XRAY-229），心血管系统重构为三级泵结构（血压峰值1200mmHg，超声#US-882）。",
+        attributes: {
+          "AEI": 95,    // 极高能量湮灭
+          "CDP": 85,    // 高操控依赖
+          "PCC": 90,    // 极高持续污染
+          "EEV": 80,    // 高突变风险
+          "NEI": 25,    // 中低神经侵蚀
+          "VRL": 98,    // 极高失控风险
+          "LTV": 10,    // 极低隐匿性
+          "STR": 95,    // 极高应激触发
+          "SSI": 75     // 高协同风险
+        },
+        abnormalTests: [2, 3, 6],
+        abnormalRates: [1, 0.95, 1],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "高密度沉积": "检测位置：L3-L5椎骨（#CT-775）",
+              "密度异常": "8.2g/cm³（#XRAY-229）",
+              "物质成分": "未知合金（光谱#SP-445）"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "心血管结构": "三级泵系统（#US-882）",
+              "血压峰值": "1200mmHg（收缩压）",
+              "心肌厚度": "32mm（正常10mm）"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "气压波动": "±15%（#BR-112）",
+              "地面震动": "里氏0.8级（#SEIS-445）",
+              "电磁干扰": "0.5V/m（#EM-332）"
+            }
+          }
+        }
+      },
+
+      // AB-019: 接触式物质传送 (已修复)
+      {
+        id: "AB-019",
+        name: "接触式物质传送",
+        enName: "Contact-Based Matter Teleportation",
+        level: "L-4",
+        spawnWeight: 4,
+        type: "G4-CHIM",
+        range: "PHASE",
+        desc: "对象皮肤检测到异常蛋白质复合体（电镜#EM-775），通过直接接触可将物体（≤5kg，体积≤0.01m³）传送至30米内视线定位点。传送过程需：①持续皮肤接触≥3秒 ②视觉锁定目标点≥5秒 ③消耗5500±300大卡热量。传送失败率5.5%，可能导致物质融合或高能辐射（事故#AC-230）。过度使用引发接触区域皮肤硅化结晶（速率1.2%/次，活检#BIO-446）。",
+        attributes: {
+          "AEI": 50,    // 中等能量湮灭
+          "CDP": 85,    // 极高操控依赖
+          "PCC": 45,    // 中持续污染
+          "EEV": 55,    // 中高突变风险
+          "NEI": 60,    // 高神经侵蚀
+          "VRL": 75,    // 高失控风险
+          "LTV": 30,    // 低隐匿性
+          "STR": 65,    // 高应激触发
+          "SSI": 35     // 中协同风险
+        },
+        abnormalTests: [1, 4, 7],
+        abnormalRates: [0.8, 0.75, 0.65],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "接触蛋白": "密度38万/mm²（#EM-775）",
+              "热消耗": "5500±300大卡/次",
+              "物质限制": "≤5kg & ≤0.01m³"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "接触时间": "≥3秒（皮肤接触）",
+              "视觉锁定": "≥5秒持续",
+              "误差率": "5.5%（#AC-230）"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "接触点硅化": "1.2%/次（#BIO-446）",
+              "神经延迟": "12ms（#EEG-883）",
+              "辐射风险": "0.8Sv/失败（#AC-230）"
+            }
+          }
+        }
+      },
+
+      // AB-020: 空间物质传送 (已修复)
+      {
+        id: "AB-020",
+        name: "空间物质传送",
+        enName: "Spatial Matter Transmission",
+        level: "L-5",
+        spawnWeight: 1,
+        type: "G5-FRES",
+        range: "PHASE",
+        desc: "对象大脑检测到异常空间计算中枢（fMRI#FM-884），可在50米内传送≤100kg物体至指定位置。使用光学定位设备（如手电筒#DEV-115）可将误差率降低至8.5%，否则误差率高达38.5%。每次传送：①产生空间应力（0.5单位/次）②消耗血糖至危险水平（≤2.8mmol/L）③累积量子退相干（0.3单位/次）。累计应力超过5单位将引发空间断层（事件#EV-334）。无设备辅助时相位错位风险提升至32%。",
+        attributes: {
+          "AEI": 95,    // 极高能量湮灭
+          "CDP": 90,    // 极高操控依赖
+          "PCC": 85,    // 高持续污染
+          "EEV": 88,    // 高突变风险
+          "NEI": 92,    // 极高神经侵蚀
+          "VRL": 99,    // 极高失控风险
+          "LTV": 10,    // 极低隐匿性
+          "STR": 93,    // 极高应激触发
+          "SSI": 80     // 高协同风险
+        },
+        abnormalTests: [2, 4, 6, 7],
+        abnormalRates: [1, 1, 1, 1],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "空间计算中枢": "顶叶异常激活（#FM-884）",
+              "量子退相干": "0.3单位/次（#QDC-336）",
+              "血糖消耗": "降至2.8mmol/L（#GLU-335）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "传送距离": "≤50米（#POS-116）",
+              "质量限制": "≤100kg（#MAT-559）",
+              "设备辅助": "误差率8.5% vs 38.5%"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "空间应力": "0.5单位/次（#STR-228）",
+              "相位错位": "设备辅助3.2% vs 无设备32%",
+              "意识断层": "设备辅助18% vs 无设备68%"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "空间断层": "阈值5单位（#EV-334）",
+              "设备依赖": "非强制但强烈推荐",
+              "风险梯度": "无设备使用风险+400%"
+            }
+          }
+        }
+      },
+
+      // AB-021: 生化抗性体 (已修复)
+      {
+        id: "AB-021",
+        name: "生化抗性体",
+        enName: "Biochemical Resistor",
+        level: "L-3",
+        spawnWeight: 15,
+        type: "G3-REGD",
+        range: "INTRA",
+        desc: "对象肝脏检测到深海管虫Riftia pachyptila同源基因（相似度93%，测序#SEQ-445），可中和92%有机毒素。表现为：①血液pH耐受范围3.2-9.8 ②代谢率降低40% ③需每日摄入LD50剂量神经毒素（如河豚毒素）。长期使用导致肝细胞纤维化（速率0.7%/天，活检#BIO-775）和肾小球硬化（发生率58%，超声#US-882）。",
+        attributes: {
+          "AEI": 25,    // 低能量湮灭
+          "CDP": 65,    // 中高操控依赖
+          "PCC": 50,    // 中持续污染
+          "EEV": 40,    // 中低突变风险
+          "NEI": 55,    // 中高神经侵蚀
+          "VRL": 50,    // 中等失控风险
+          "LTV": 60,    // 中高隐匿性
+          "STR": 45,    // 中应激触发
+          "SSI": 35     // 中低协同风险
+        },
+        abnormalTests: [1, 3, 5],
+        abnormalRates: [0.7, 0.6, 0.5],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "解毒酶活性": "3800U/L（正常800）",
+              "基因相似度": "93% Riftia pachyptila（#SEQ-445）",
+              "细胞色素": "变异体TX-9"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "代谢率": "基础值-40%（#MET-332）",
+              "毒素需求": "每日≥LD50（#TOX-112）",
+              "血液pH": "3.2-9.8波动（#PH-229）"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "肝纤维化": "0.7%/天（#BIO-775）",
+              "肾小球硬化": "58%（#US-882）",
+              "神经依赖": "戒断致死率100%"
+            }
+          }
+        }
+      },
+
+      // AB-022: 双频激光发射 (已修复)
+      {
+        id: "AB-022",
+        name: "双频激光发射",
+        enName: "Dual-Frequency Laser Emission",
+        level: "L-4",
+        spawnWeight: 4,
+        type: "G1-EXPR",
+        range: "EMIT",
+        desc: "对象右眼结构发生突变，转化为高能生物激光发射器（标本#TS-775）。晶状体重组为Nd:YAG非线性晶体，具备双频激光输出能力（1064nm红外/532nm绿光），最大输出功率3.2W（测试#PWR-112），有效射程47米（校准记录#RNG-445）。激光激活时虹膜温度每分钟上升22℃（热成像#IR-332），必须强制佩戴#DEV-116型衰减眼镜以控制发射。后坐力导致视觉精度偏差±0.5°，持续使用需配合液氮冷却系统（参见协议#COOL-09）。",
+        attributes: {
+          "AEI": 85,    // 高能量湮灭
+          "CDP": 75,    // 高操控依赖
+          "PCC": 40,    // 中低持续污染
+          "EEV": 55,    // 中高突变风险
+          "NEI": 50,    // 中神经侵蚀
+          "VRL": 80,    // 高失控风险
+          "LTV": 15,    // 极低隐匿性
+          "STR": 65,    // 高应激触发
+          "SSI": 35     // 中协同风险
+        },
+        abnormalTests: [2, 4, 6],
+        abnormalRates: [0.85, 0.75, 0.65],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "角膜涂层": "金刚石样碳200nm（#TS-775）",
+              "激光功率": "3.2W峰值（#PWR-112）",
+              "有效射程": "47m（#RNG-445）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "温度上升": "22℃/min（#IR-332）",
+              "后坐力影响": "精度误差±0.5°（#ACC-778）",
+              "控制设备": "衰减眼镜#DEV-116"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "电磁特征": "独特可识别（#EM-993）",
+              "光子逸散": "2.7%（#PHO-226）",
+              "热信号": "IR特征明显"
+            }
+          }
+        }
+      },
+
+      // AB-023: 高密度肌体重构 (已修复)
+      {
+        id: "AB-023",
+        name: "高密度肌体重构",
+        enName: "Hyperdense Myoreconfiguration",
+        level: "L-3",
+        spawnWeight: 18,
+        type: "G2-RECON",
+        range: "INTRA",
+        desc: "对象检测到肌纤维异常钨元素沉积（光谱#SP-775），导致：①肌纤维密度1.85g/cm³（正常1.05）②骨骼抗压强度280MPa（测试#STR-112）③基础代谢率提升420%（需每日摄入14500±500大卡，#NUT-445）。静息心率135bpm（ECG#ECG-332），皮肤硬度莫氏4.5级（测试#HRD-886）。关节活动范围减少25%（运动分析#MOT-992）。",
+        attributes: {
+          "AEI": 15,    // 极低能量湮灭
+          "CDP": 35,    // 低操控依赖
+          "PCC": 55,    // 中持续污染
+          "EEV": 50,    // 中等突变风险
+          "NEI": 45,    // 中低神经侵蚀
+          "VRL": 30,    // 低失控风险
+          "LTV": 65,    // 中高隐匿性
+          "STR": 85,    // 极高应激触发
+          "SSI": 25     // 低协同风险
+        },
+        abnormalTests: [1, 3, 5],
+        abnormalRates: [0.68, 0.58, 0.48],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "肌纤维密度": "1.85g/cm³（正常1.05，#SP-775）",
+              "骨骼强度": "280MPa（#STR-112）",
+              "关节活动": "范围减少25%（#MOT-992）"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "基础代谢": "+420%（#MET-223）",
+              "心率静息": "135bpm（#ECG-332）",
+              "热量需求": "14500±500大卡/日（#NUT-445）"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "皮肤硬度": "莫氏4.5级（#HRD-886）",
+              "触觉敏感度": "下降60%（#TCH-667）",
+              "柔韧性": "评分3.2/10（#FLX-778）"
+            }
+          }
+        }
+      },
+      // AB-024: 钛化发丝操控 (已修复)
+      {
+        id: "AB-024",
+        name: "钛化发丝操控",
+        enName: "Titanized Trichokinesis",
+        level: "L-3",
+        spawnWeight: 15,
+        type: "G3-REGD",
+        range: "STRUCT",
+        desc: "枕叶皮层检测到新增神经控制区（体积1.2cm³，fMRI#FM-778），可调控含钛26wt%的发丝（XRF#XRF-775）。发丝弹性模量达16GPa（测试#ELA-112），最大负载3.8kg（#LD-332）。操控过程存在110ms神经延迟（EEG#EEG-886），表现为低速运动（0.3m/s）及有限穿透深度（≤2cm，#PEN-335）。防御形态形成面积≤0.3m²的屏障（#DEF-668），吸收上限20J动能（#ABS-779）。每月需补充0.3mg钇元素维持功能（光谱#SP-992），环境湿度>70%时效率下降50%（气候模拟#CLM-449），毛囊萎缩发生率42%（活检#BIO-667）。",
+        attributes: {
+          "AEI": 50,    // 中低能量湮灭
+          "CDP": 30,    // 高操控依赖
+          "PCC": 15,    // 低持续污染
+          "EEV": 35,    // 低突变风险
+          "NEI": 50,    // 中神经侵蚀
+          "VRL": 45,    // 中高失控风险
+          "LTV": 14,    // 中低隐匿性
+          "STR": 85,    // 中高应激触发
+          "SSI": 25     // 低协同风险
+        },
+        abnormalTests: [1, 4, 7],
+        abnormalRates: [0.62, 0.52, 0.42],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "钛沉积量": "26wt%（#XRF-775）",
+              "弹性参数": "16GPa（#ELA-112）",
+              "断裂阈值": "3.8kg（#LD-332）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "神经延迟": "110ms（#EEG-886）",
+              "穿透效能": "≤2cm（#PEN-335）",
+              "运动速度": "0.3m/s（#MOT-449）"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "屏障面积": "≤0.3m²（#DEF-668）",
+              "动能吸收": "20J（#ABS-779）",
+              "萎缩概率": "42%（#BIO-667）"
+            }
+          }
+        }
+      },
+
+      // AB-025: 鸦科神经交互 (已修复)
+      {
+        id: "AB-025",
+        name: "鸦科神经交互",
+        enName: "Corvid Neural Interface",
+        level: "L-2",
+        spawnWeight: 35,
+        type: "G7-SHAD",
+        range: "NEURO",
+        desc: "对象颞叶检测到异常镜像神经元簇Cv-1~Cv-3（体积0.8cm³，fMRI#FM-775），可在50米内与鸦科动物建立神经连接（带宽11bit/s，EEG#EEG-112）。唾液含0.25nM鸦科信息素类似物（质谱#MS-445），诱导趋近行为（有效距离≤15m）。持续连接超过25分钟诱发啄食反射（发生率85%，行为记录#BEH-332），长期使用导致前额叶功能重组（记忆编码异常，测试#MEM-886）。",
+        attributes: {
+          "AEI": 10,    // 极低能量湮灭
+          "CDP": 68,    // 中操控依赖
+          "PCC": 25,    // 低持续污染
+          "EEV": 59,    // 中突变风险
+          "NEI": 40,    // 中低神经侵蚀
+          "VRL": 20,    // 低失控风险
+          "LTV": 65,    // 中高隐匿性
+          "STR": 25,    // 低应激触发
+          "SSI": 30     // 低协同风险
+        },
+        abnormalTests: [2, 5, 7],
+        abnormalRates: [0.58, 0.48, 0.38],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "神经元簇体积": "0.8cm³（#FM-775）",
+              "神经带宽": "11bit/s（#EEG-112）",
+              "连接距离": "≤50m（#CON-445）"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "信息素浓度": "0.25nM（#MS-445）",
+              "趋近效应": "≤15m（#ATR-332）",
+              "啄食反射": "发生率85%（#BEH-332）"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "记忆编码异常": "海马体CA3区（#MEM-886）",
+              "前额叶重组": "功能连接改变（#FC-778）",
+              "梦境禽化": "出现率38%（#DREAM-992）"
+            }
+          }
+        }
+      },
+
+      // AB-026: 生物冷光共生 (已修复)
+      {
+        id: "AB-026",
+        name: "生物冷光共生",
+        enName: "Bioluminescent Symbiosis",
+        level: "L-1",
+        spawnWeight: 50,
+        type: "G1-EXPR",
+        range: "INTRA",
+        desc: "表皮检测到Photobacterium kishitanii菌株定植（培养#CUL-775），产生490nm波长冷光（强度8-12lux，光谱#SP-112）。菌群密度维持2-5×10⁵ CFU/cm²（计数#CNT-445），发光效率95光子/ATP（量子产率0.88）。该能力完全被动，无控制机制，光照强度不足以影响环境或生物节律。",
+        attributes: {
+          "AEI": 2,     // 极低能量湮灭
+          "CDP": 5,     // 极低操控依赖（被动能力）
+          "PCC": 15,    // 低持续污染
+          "EEV": 8,     // 极低突变风险
+          "NEI": 5,     // 极低神经侵蚀
+          "VRL": 3,     // 极低失控风险
+          "LTV": 22,    // 中高隐匿风险（微弱发光）
+          "STR": 3,     // 极低应激触发
+          "SSI": 10     // 极低协同风险
+        },
+        abnormalTests: [1],
+        abnormalRates: [0.22],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "菌株鉴定": "Photobacterium kishitanii（#CUL-775）",
+              "发光强度": "8-12lux（#SP-112）",
+              "菌群密度": "2-5×10⁵ CFU/cm²（#CNT-445）"
+            }
+          }
+        }
+      },
+
+      // AB-027: 动态色素调控 (已修复)
+      {
+        id: "AB-027",
+        name: "动态色素调控",
+        enName: "Dynamic Chromatophore Control",
+        level: "L-2",
+        spawnWeight: 25,
+        type: "G3-REGD",
+        range: "INTRA",
+        desc: "对象表皮黑色素细胞检测到光敏视蛋白OPN4异常表达（免疫组化#IHC-775），可在CIELAB色空间实现ΔE=35/min的肤色变化（色度计#COL-112）。调控效率与温度正相关（Q10=1.8，#TMP-445），低于16℃时效率下降65%（#CLM-332）。持续使用导致表皮屏障功能下降（经皮水分流失↑38%，#TEWL-886）。",
+        attributes: {
+          "AEI": 5,     // 极低能量湮灭
+          "CDP": 65,    // 中高操控依赖
+          "PCC": 15,    // 低持续污染
+          "EEV": 35,    // 低突变风险
+          "NEI": 35,    // 低神经侵蚀
+          "VRL": 25,    // 低失控风险
+          "LTV": 70,    // 中高隐匿性
+          "STR": 15,    // 低应激触发
+          "SSI": 20     // 低协同风险
+        },
+        abnormalTests: [1, 4],
+        abnormalRates: [0.52, 0.42],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "OPN4表达": "异常阳性（#IHC-775）",
+              "色差变化": "ΔE=35/min（#COL-112）",
+              "温度系数": "Q10=1.8（#TMP-445）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "低温影响": "效率↓65%（#CLM-332）",
+              "屏障功能": "TEWL↑38%（#TEWL-886）",
+              "色域范围": "CIELAB L*40-80（#RNG-557）"
+            }
+          }
+        }
+      },
+
+      // AB-028: 表皮吸附增强 (已修复)
+      {
+        id: "AB-028",
+        name: "表皮吸附增强",
+        enName: "Dermal Adhesion Enhancement",
+        level: "L-1",
+        spawnWeight: 60,
+        type: "G2-RECON",
+        range: "INTRA",
+        desc: "对象指腹检测到皮嵴密度异常增高（240条/mm²，显微镜#MIC-775），β-角蛋白Ser312位点磷酸化水平提升（质谱#MS-112），产生1.1-1.7N吸附力（测试#ADH-445）。吸附效能高度依赖环境湿度（RH>70%时下降65%，气候模拟#CLM-332），接触分离能耗0.05J/cm²（热成像#IR-886），耐磨周期1800次（摩擦测试#FRC-992）。",
+        attributes: {
+          "AEI": 5,     // 极低能量湮灭
+          "CDP": 35,    // 低操控依赖
+          "PCC": 0,    // 低持续污染
+          "EEV": 15,    // 极低突变风险
+          "NEI": 10,    // 极低神经侵蚀
+          "VRL": 5,     // 极低失控风险
+          "LTV": 65,    // 中高隐匿性
+          "STR": 15,    // 低应激触发
+          "SSI": 25     // 低协同风险
+        },
+        abnormalTests: [1],
+        abnormalRates: [0.28],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "皮嵴密度": "240条/mm²（#MIC-775）",
+              "磷酸化水平": "Ser312 P=0.03（#MS-112）",
+              "吸附力范围": "1.1-1.7N（#ADH-445）",
+              "湿度影响": "RH>70%↓65%（#CLM-332）",
+              "分离能耗": "0.05J/cm²（#IR-886）",
+              "耐磨周期": "1800次（#FRC-992）"
+            }
+          }
+        }
+      },
+
+      // AB-029: 嗜血肌增症 (已修复)
+      {
+        id: "AB-029",
+        name: "嗜血肌增症",
+        enName: "Hemo-Myohyperplasia",
+        level: "L-4",
+        spawnWeight: 8,
+        type: "G3-REGD",
+        range: "INTRA",
+        desc: "对象嗅觉受体OR4D6基因c.889T>C突变导致对血液气味极度敏感（阈值0.01ppm，正常5ppm）。吸入血液分子后：①肌肉膨胀率180%（体积增加）②肌纤维密度提升至1.9g/cm³ ③痛觉感知下降90%。持续超过3分钟将导致海马体永久损伤（MRI#MRI-776）。需定期注射镇静剂（Protocol#SED-229）防止无差别攻击行为。",
+        attributes: {
+          "AEI": 75,    // 高能量释放
+          "CDP": 15,    // 极低操控依赖
+          "PCC": 60,    // 中高持续污染
+          "EEV": 55,    // 中高突变风险
+          "NEI": 70,    // 高神经侵蚀
+          "VRL": 85,    // 高失控风险
+          "LTV": 10,    // 极低隐匿性
+          "STR": 95,    // 极高应激触发
+          "SSI": 40     // 中协同风险
+        },
+        abnormalTests: [1, 3, 5],
+        abnormalRates: [0.9, 0.8, 0.7],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "OR4D6突变": "c.889T>C（rs762551）",
+              "嗅觉阈值": "0.01ppm血液（正常5ppm）",
+              "肾上腺素": "峰值12.8nmol/L（正常0.5）"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "肌纤维密度": "1.9g/cm³（正常1.05）",
+              "乳酸堆积率": "降低80%",
+              "代谢率": "基础值+450%"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "海马体损伤": "3分钟暴露后体积↓22%",
+              "攻击行为": "发生率98%（未镇静）",
+              "镇静需求": "每72小时注射#SED-229"
+            }
+          }
+        }
+      },
+
+      // AB-030: 湍流操控 (已修复)
+      {
+        id: "AB-030",
+        name: "湍流操控",
+        enName: "Turbulence Manipulation",
+        level: "L-3",
+        spawnWeight: 12,
+        type: "G5-FRES",
+        range: "PHASE",
+        desc: "对象AQP4基因c.812G>A突变导致水通道蛋白构象异常（电镜#EM-777），可在半径15米内操控液态水。表现为：①形成直径≤2m水龙卷（速度12m/s） ②精度误差±25cm ③持续超过5分钟引发低钠血症（血钠≤125mmol/L）。环境湿度<30%时效率下降70%（气候模拟#CLM-776）。",
+        attributes: {
+          "AEI": 40,    // 中低能量湮灭
+          "CDP": 55,    // 中高操控依赖
+          "PCC": 35,    // 中持续污染
+          "EEV": 45,    // 中突变风险
+          "NEI": 50,    // 中神经侵蚀
+          "VRL": 60,    // 中高失控风险
+          "LTV": 25,    // 低隐匿性
+          "STR": 65,    // 高应激触发
+          "SSI": 30     // 中低协同风险
+        },
+        abnormalTests: [2, 4, 6],
+        abnormalRates: [0.75, 0.6, 0.5],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "AQP4突变": "c.812G>A",
+              "水分子结合能": "降低35%",
+              "操控半径": "15m（湿度>60%）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "精度误差": "±25cm（#POS-778）",
+              "速度峰值": "12m/s（#VEL-334）",
+              "湿度影响": "效率↓70%（RH<30%）"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "电解质失衡": "血钠≤125mmol/L（#ION-227）",
+              "脑水肿风险": "暴露>5min发生率45%",
+              "肾脏负担": "GFR↓40%"
+            }
+          }
+        }
+      },
+
+      // AB-031: 全金属化 (已修复)
+      {
+        id: "AB-031",
+        name: "全金属化",
+        enName: "Total Metallization",
+        level: "L-4",
+        spawnWeight: 6,
+        type: "G2-RECON",
+        range: "STRUCT",
+        desc: "对象COL1A1基因c.1345G>C突变导致胶原蛋白与铁离子异常结合（XRD#XRD-778），全身可转化为高密度合金状态（硬度HV580，密度8.2g/cm³）。转化期间：①基础代谢率降至20% ②神经传导速度下降60% ③需每日摄入≥200mg稀土元素维持功能（监测#MIN-335）。逆转化过程有12%概率导致关节融合（X光#XRAY-227）。",
+        attributes: {
+          "AEI": 20,    // 低能量湮灭
+          "CDP": 70,    // 高操控依赖
+          "PCC": 85,    // 高持续污染
+          "EEV": 65,    // 中高突变风险
+          "NEI": 40,    // 中低神经侵蚀
+          "VRL": 55,    // 中高失控风险
+          "LTV": 5,     // 极低隐匿性
+          "STR": 80,    // 高应激触发
+          "SSI": 45     // 中协同风险
+        },
+        abnormalTests: [1, 3, 7],
+        abnormalRates: [0.85, 0.7, 0.6],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "COL1A1突变": "c.1345G>C",
+              "金属化率": "98.7%体表（#SCAN-778）",
+              "合金成分": "Fe 72%/Cr 15%/Ni 10%"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "代谢抑制": "基础值20%（#MET-336）",
+              "神经延迟": "传导速度↓60%（#NCV-228）",
+              "稀土需求": "≥200mg/日（#MIN-335）"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "关节融合": "发生率12%（#XRAY-227）",
+              "电解失衡": "血钙≤1.8mmol/L",
+              "氧化应激": "MDA水平↑350%"
+            }
+          }
+        }
+      },
+
+      // AB-032: 神经追踪 (已修复)
+      {
+        id: "AB-032",
+        name: "神经追踪",
+        enName: "Neural Tracking",
+        level: "L-4",
+        spawnWeight: 7,
+        type: "G3-REGD",
+        range: "NEURO",
+        desc: "对象TAAR1基因c.667A>G突变导致对异常神经电信号敏感度提升（阈值0.05μV，正常5μV）。可锁定：①半径3km内变异者（精度±5m） ②普通人类精度仅±500m ③持续追踪消耗多巴胺速率提升400%（微透析#MD-776）。过度使用导致伏隔核功能衰竭（PET#PET-336），需每周补充L-酪氨酸（Protocol#TYR-228）。",
+        attributes: {
+          "AEI": 15,    // 极低能量湮灭
+          "CDP": 45,    // 中操控依赖
+          "PCC": 50,    // 中持续污染
+          "EEV": 40,    // 中低突变风险
+          "NEI": 75,    // 高神经侵蚀
+          "VRL": 65,    // 高失控风险
+          "LTV": 55,    // 中高隐匿性
+          "STR": 70,    // 高应激触发
+          "SSI": 35     // 中协同风险
+        },
+        abnormalTests: [2, 5, 6],
+        abnormalRates: [0.8, 0.65, 0.55],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "TAAR1突变": "c.667A>G",
+              "信号敏感度": "0.05μV（正常5μV）",
+              "多巴胺消耗": "速率↑400%（#MD-776）"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "追踪精度": "变异者±5m/普通人±500m",
+              "有效半径": "3km（城市环境）",
+              "误报率": "2.3%（#ERR-337）"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "伏隔核损伤": "葡萄糖代谢↓45%（#PET-336）",
+              "补充需求": "L-酪氨酸500mg/周（#TYR-228）",
+              "戒断反应": "抑郁发生率78%"
+            }
+          }
+        }
+      },
+
+      // AB-033: 意识侵占 (已修复)
+      {
+        id: "AB-033",
+        name: "意识侵占",
+        enName: "Consciousness Hijack",
+        level: "L-5",
+        spawnWeight: 1,
+        type: "G7-SHAD",
+        range: "NEURO",
+        desc: "对象前额叶皮层检测到异常镜像神经元簇HI-1~HI-3（体积1.8cm³，fMRI#FM-779），可通过α波耦合（相干值0.92）侵入目标意识。成功率取决于：①目标精神力强度（阈值≤7.3μV²/Hz） ②入侵时间（≥8分钟完成永久占据） ③失败时自身意识熵值增加（ΔH≥2.4/次）。已记录12例意识消散事故（档案#INC-339）。",
+        attributes: {
+          "AEI": 5,     // 极低能量湮灭
+          "CDP": 95,    // 极高操控依赖
+          "PCC": 90,    // 极高持续污染
+          "EEV": 85,    // 高突变风险
+          "NEI": 99,    // 极高神经侵蚀
+          "VRL": 99,    // 极高失控风险
+          "LTV": 70,    // 高隐匿性
+          "STR": 80,    // 高应激触发
+          "SSI": 75     // 高协同风险
+        },
+        abnormalTests: [2, 5, 7],
+        abnormalRates: [0.95, 0.9, 0.85],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "神经元簇": "HI-1~HI-3（1.8cm³，#FM-779）",
+              "α波耦合": "相干值0.92（#EEG-779）",
+              "意识熵值": "基准H=0.8"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "成功阈值": "目标脑电≤7.3μV²/Hz",
+              "占据时间": "永久化需≥8min",
+              "失败惩罚": "ΔH≥2.4/次"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "事故记录": "12例意识消散（#INC-339）",
+              "身体排斥": "发生率58%",
+              "记忆融合": "概率23%"
+            }
+          }
+        }
+      },
+
+      // AB-034: 群体支配 (已修复)
+      {
+        id: "AB-034",
+        name: "群体支配",
+        enName: "Mass Domination",
+        level: "L-5",
+        spawnWeight: 1,
+        type: "G4-CHIM",
+        range: "NEURO",
+        desc: "对象默认模式网络检测到异常θ-γ耦合（相位差15°，MEG#MEG-777），可在半径50米内同时控制≤7人。表现为：①控制时长≤15分钟 ②目标需保持视线接触 ③自身脑温上升0.4℃/分钟（风险阈值42℃）。超过安全使用次数（3次/日）将导致前额叶皮层不可逆损伤（活检#BIO-338）。",
+        attributes: {
+          "AEI": 30,    // 中低能量湮灭
+          "CDP": 80,    // 高操控依赖
+          "PCC": 75,    // 高持续污染
+          "EEV": 70,    // 高突变风险
+          "NEI": 90,    // 极高神经侵蚀
+          "VRL": 85,    // 高失控风险
+          "LTV": 40,    // 中隐匿性
+          "STR": 75,    // 高应激触发
+          "SSI": 65     // 高协同风险
+        },
+        abnormalTests: [2, 4, 6],
+        abnormalRates: [0.9, 0.8, 0.7],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "θ-γ耦合": "相位差15°（#MEG-777）",
+              "控制上限": "7人同时（#CTL-338）",
+              "视线依赖": "中断即失效"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "持续时间": "≤15分钟/次",
+              "脑温上升": "0.4℃/min（#TEMP-339）",
+              "安全阈值": "42℃（风险线）"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "使用限制": "≤3次/日（#LIM-340）",
+              "皮层损伤": "使用超限后体积↓18%",
+              "记忆碎片": "发生率67%"
+            }
+          }
+        }
+      },
+
+      // AB-035: 不完全羽化症候群 (已修复)
+      {
+        id: "AB-035",
+        name: "不完全羽化症候群",
+        enName: "Incomplete Winged Morphosis",
+        level: "L-3",
+        spawnWeight: 15,
+        type: "G2-RECON",
+        range: "STRUCT",
+        desc: "对象SCXA基因c.2287G>T突变导致背阔肌异常分化（组织切片#TS-775），形成翼展2.3m的膜翼结构（密度0.8g/cm³）。飞行能力：①最大滞空时间180秒 ②巡航速度40km/h ③升限15m。伴随进化特征：①虹膜呈现垂直瞳孔（检镜#OPT-112） ②跟腱长度增加30%（X光#XRAY-445） ③基础代谢率+220%（检测#MET-332）。",
+        attributes: {
+          "AEI": 35,    // 中等能量消耗
+          "CDP": 65,    // 中高操控需求
+          "PCC": 40,    // 中低持续污染
+          "EEV": 45,    // 中突变风险
+          "NEI": 50,    // 中神经侵蚀
+          "VRL": 60,    // 中高失控风险
+          "LTV": 25,    // 低隐匿性
+          "STR": 55,    // 中应激触发
+          "SSI": 30     // 低协同风险
+        },
+        abnormalTests: [1, 3, 5],
+        abnormalRates: [0.7, 0.6, 0.5],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "SCXA突变": "c.2287G>T（rs28936679）",
+              "翼膜结构": "胶原纤维排列异常（电镜#EM-775）",
+              "空气动力学": "升阻比1.8（正常鸟类3.2）"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "骨骼改造": "胸骨嵴突增高4.2cm（#XRAY-445）",
+              "肌肉重构": "斜方肌体积↑150%（#MRI-332）",
+              "能量消耗": "飞行时180kcal/min（#CAL-778）"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "视觉适应": "动态视力↑30%（#VIS-992）",
+              "前庭改造": "半规管容积↑25%（#CT-226）",
+              "皮肤角质化": "掌跖部位厚度↑300%"
+            }
+          }
+        }
+      },
+
+      // AB-036: 绝对再生体 (已修复)
+      {
+        id: "AB-036",
+        name: "绝对再生体",
+        enName: "Absolute Regeneration Subject",
+        level: "L-5",
+        spawnWeight: 1,
+        type: "G4-CHIM",
+        range: "INTRA",
+        desc: "实验体因hTERT/p53复合突变（详见报告#GEN-775）展现异常再生特性：①组织重建速率2.1cm³/min（基准0.03）②全身细胞更新周期72hr③神经重构完整度100%。需持续供能38,000kcal/日（参见协议#NUT-112）。",
+        attributes: {
+          "AEI": 5,     // 无能量释放现象
+          "CDP": 5,     // 完全被动生效
+          "PCC": 95,    // 极高细胞污染风险
+          "EEV": 90,    // 基因熵变活跃度
+          "NEI": 80,    // 神经重构侵蚀度
+          "VRL": 85,    // 记忆重置导致失控
+          "LTV": 10,    // 代谢热信号明显
+          "STR": 20,    // 低应激敏感性 
+          "SSI": 75     // 高协同污染风险
+        },
+        abnormalTests: [1, 2, 3, 4, 5, 6, 7],
+        abnormalRates: [1, 1, 1, 1, 1, 1, 1],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "hTERT活性": "380%（正常100%，#WB-775）",
+              "p53突变": "c.743G>A（功能缺失）",
+              "细胞周期": "更新周期72h（正常180d）"
+            }
+          },
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "再生速率": "2.1cm³/min（基准0.03）",
+              "神经重建": "完整性100%（#EM-445）",
+              "损伤阈值": "无已知致命伤"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "代谢需求": "38,000大卡/日（#NUT-112）",
+              "体温维持": "42℃恒定（#IR-332）",
+              "排汗效率": "水分流失12L/日"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "记忆存储": "周期≤14天（#MEM-886）",
+              "人格稳定性": "H指数4.8（正常0.8）",
+              "痛觉感知": "阈值↑500%"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "情绪剖面": "恐惧反应缺失（#EMO-772）",
+              "应激反应": "皮质醇水平↓80%（#HORM-554）",
+              "情感表达": "情感平面化指数9.2（正常1-3）"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "共振频率": "7.83Hz（地球共振频率）",
+              "能量吸收": "环境能量吸收率92%（#ENER-223）",
+              "场强稳定性": "波动范围±0.01Hz"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "记忆嵌入": "抵抗率0%（#MEM-992）",
+              "虚拟意识": "接受度100%（#VR-447）",
+              "现实感知": "失真阈值↑300%"
+            }
+          }
+        }
+      },
+
+      // AB-037: 认知模糊体 (已修复)
+      {
+        id: "AB-037",
+        name: "认知模糊体",
+        enName: "Cognitive Occlusion Entity",
+        level: "L-2",
+        spawnWeight: 30,
+        type: "G7-SHAD",
+        range: "NEURO",
+        desc: "对象大脑默认模式网络检测到异常α波抑制（EEG#EEG-775），导致：①视网膜成像信号传递效率降低60%（VEP#VEP-112） ②体表反射率自动匹配环境（ΔE≤3，色度计#COL-445） ③声波衍射率提升35%（声学#ACU-332）。效果：在视野中心30°范围内被观察概率下降至12%（测试#OBS-886），移动速度>1m/s时效果衰减。",
+        attributes: {
+          "AEI": 5,     // 极低能量消耗
+          "CDP": 25,    // 低操控需求
+          "PCC": 10,    // 低持续污染
+          "EEV": 15,    // 极低突变风险
+          "NEI": 40,    // 中低神经侵蚀
+          "VRL": 20,    // 低失控风险
+          "LTV": 95,    // 极高隐匿性
+          "STR": 10,    // 极低应激触发
+          "SSI": 15     // 极低协同风险
+        },
+        abnormalTests: [2, 4, 6],
+        abnormalRates: [0.6, 0.5, 0.4],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "α波抑制": "功率↓75%（#EEG-775）",
+              "信号衰减": "视觉传导↓60%（#VEP-112）",
+              "注意力干扰": "持续注视阈值<2s"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "色彩适应": "ΔE≤3（#COL-445）",
+              "运动模糊": "速度>1m/s失效",
+              "听觉遮蔽": "声纹识别率↓40%"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "观察概率": "中心视野12%（#OBS-886）",
+              "记忆留存率": "短期记忆↓55%",
+              "社交回避": "互动意愿↓80%"
+            }
+          }
+        }
+      },
+
+      // AB-038: 指端引燃 (已修复)
+      {
+        id: "AB-038",
+        name: "指端引燃",
+        enName: "Digital Ignition",
+        level: "L-1",
+        spawnWeight: 35,
+        type: "G1-EXPR",
+        range: "EMIT",
+        desc: "对象手指表皮检测到活性丙烷激化酶（浓度0.8mg/cm²，质谱#MS-887），摩擦时催化空气中碳氢化合物产生明火（最高温度180℃，热成像#IR-334）。表现为：①接触氧含量>12%环境可点火 ②单次持续时间≤3秒 ③失败率22%（缺氧环境）。长期使用导致指端角质坏死（活检#BIO-227）。",
+        attributes: {
+          "AEI": 8,    // 微能量释放
+          "CDP": 40,   // 摩擦控制需求
+          "PCC": 0,    // 无持续污染
+          "EEV": 15,   // 低熵变进化率
+          "NEI": 8,    // 低神经侵蚀率
+          "VRL": 10,   // 低失控风险率
+          "LTV": 60,   // 中隐匿风险率
+          "STR": 30,   // 中应激触发率
+          "SSI": 12    // 低协同失控率
+        },
+        abnormalTests: [2, 4],
+        abnormalRates: [0.5, 0.3],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "酶浓度": "0.8mg/cm²（#MS-887）",
+              "催化效率": "氧含量12%触发（#ATM-335）",
+              "温度峰值": "180℃（#IR-334）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "持续时间": "≤3秒/次（#DUR-778）",
+              "失败率": "22%（缺氧环境）",
+              "组织坏死": "角质层增厚300%（#BIO-227）"
+            }
+          }
+        }
+      },
+
+      // AB-039: 多相消化 (已修复)
+      {
+        id: "AB-039",
+        name: "多相消化",
+        enName: "Phase Digestion",
+        level: "L-3",
+        spawnWeight: 12,
+        type: "G2-RECON",
+        range: "INTRA",
+        desc: "对象胃壁检测到嵌合体酶复合物（X射线晶体#XRC-778），包含纤维素酶/金属蛋白酶/硅解酶（比例4:3:3）。消化效率：①木材2kg/h（热值提取率85%） ②低碳钢0.5kg/h ③铝材1.2kg/h。副作用：①胃液pH=0.8（记录#PH-336） ②排泄物含重金属结晶（光谱#SP-888） ③牙釉质损伤等级IV（内镜#ENDO-229）。",
+        attributes: {
+          "AEI": 5,     // 无能量破坏
+          "CDP": 65,    // 高操控依赖率
+          "PCC": 50,    // 中污染持续率
+          "EEV": 40,    // 中熵变进化率
+          "NEI": 35,    // 中神经侵蚀率
+          "VRL": 60,    // 中高失控风险率
+          "LTV": 20,    // 低隐匿风险率
+          "STR": 70,    // 高应激触发率
+          "SSI": 28     // 低协同失控率
+        },
+        abnormalTests: [1, 3, 6],
+        abnormalRates: [0.7, 0.6, 0.4],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "酶复合物": "纤维素酶40%/金属蛋白酶30%/硅解酶30%（#XRC-778）",
+              "催化活性": "Vmax=8.2μmol/min"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "消化速率": "木材2kg/h，钢铁0.5kg/h（#DIG-336）",
+              "胃液酸度": "pH=0.8（#PH-336）",
+              "能量转化": "热值提取率85%"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "排泄物": "重金属结晶（#SP-888）",
+              "胃壁耐受": "溃疡发生率58%（#ENDO-229）",
+              "代谢负担": "肝脏解毒压力↑300%"
+            }
+          }
+        }
+      },
+
+      // AB-040: 肢体延展 (已修复)
+      {
+        id: "AB-040",
+        name: "肢体延展",
+        enName: "Limb Extension",
+        level: "L-2",
+        spawnWeight: 25,
+        type: "G3-REGD",
+        range: "STRUCT",
+        desc: "对象ELN基因c.3321A>G突变导致弹性蛋白构象异常（电镜#EM-889），手臂可延展至原始长度400%（极限抗拉强度12MPa）。机械性能：①回缩速度0.5m/s ②最大载荷80kg ③疲劳寿命2000次循环。使用限制：①环境温度<10℃时延展性下降60% ②湿度>80%可能黏连（发生率25%，测试#ADH-337）。",
+        attributes: {
+          "AEI": 8,     // 无能量破坏
+          "CDP": 50,    // 中操控依赖率
+          "PCC": 12,    // 低污染持续率
+          "EEV": 30,    // 低熵变进化率
+          "NEI": 25,    // 低神经侵蚀率
+          "VRL": 35,    // 中失控风险率
+          "LTV": 45,    // 中隐匿风险率
+          "STR": 40,    // 中应激触发率
+          "SSI": 22     // 低协同失控率
+        },
+        abnormalTests: [1, 4, 5],
+        abnormalRates: [0.6, 0.4, 0.3],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "ELN突变": "c.3321A>G（#SEQ-337）",
+              "弹性极限": "400%延展（#TEN-778）",
+              "力学强度": "12MPa（#STR-889）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "速度参数": "回缩0.5m/s（#VEL-229）",
+              "环境敏感": "低温↓60%（#TEMP-338）",
+              "黏连风险": "25%（RH>80%，#ADH-337）"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "使用限制": "载荷≤80kg（#LOAD-339）",
+              "疲劳寿命": "2000次循环（#FAT-449）",
+              "关节损伤": "重复使用风险↑150%"
+            }
+          }
+        }
+      },
+
+      // AB-041: 记忆固化 (已修复)
+      {
+        id: "AB-041",
+        name: "记忆固化",
+        enName: "Memory Imprint",
+        level: "L-2",
+        spawnWeight: 30,
+        type: "G7-SHAD",
+        range: "INTRA",
+        desc: "对象检测到CAMK2基因过度表达（mRNA浓度×8，测序#SEQ-339），海马体CA1区神经元突触密度达正常值180%（MRI#MRI-890）。记忆能力：①信息读取速度0.8秒/GB ②存储精度99.98% ③无遗忘周期限制。副作用：①梦魇发生率85%（EEG#EEG-778） ②感官混淆风险（触觉→听觉转化率3%，测试#SEN-230）。",
+        attributes: {
+          "AEI": 0,     // 无能量破坏
+          "CDP": 30,    // 低操控依赖率
+          "PCC": 18,    // 低污染持续率
+          "EEV": 45,    // 中熵变进化率
+          "NEI": 60,    // 高神经侵蚀率
+          "VRL": 40,    // 中失控风险率
+          "LTV": 85,    // 高隐匿风险率
+          "STR": 20,    // 低应激触发率
+          "SSI": 32     // 中协同失控率
+        },
+        abnormalTests: [2, 5, 7],
+        abnormalRates: [0.7, 0.5, 0.4],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "CAMK2表达": "mRNA×8（#SEQ-339）",
+              "突触密度": "+80%（#MRI-890）",
+              "胶质细胞": "代谢活性↑150%"
+            }
+          },
+          5: { // 情绪剖面与恐惧反馈监测
+            data: {
+              "读取速度": "0.8秒/GB（#MEM-230）",
+              "存储精度": "99.98%（#ACC-449）",
+              "检索效率": "并行处理4线程"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "梦魇发生率": "85%（#EEG-778）",
+              "感官混淆": "触觉→听觉3%（#SEN-230）",
+              "情绪过载": "抑郁症风险↑300%"
+            }
+          }
+        }
+      },
+
+      // AB-042: 动态屈光 (已修复)
+      {
+        id: "AB-042",
+        name: "动态屈光",
+        enName: "Adaptive Refraction",
+        level: "L-1",
+        spawnWeight: 40,
+        type: "G3-REGD",
+        range: "INTRA",
+        desc: "对象CRYGS基因c.1189T>G突变导致晶状体弹性模量异常下降（硬度邵氏40A，正常70A）。调节能力：①焦距8m→∞ ②最小对焦点3cm ③响应时间0.3秒。光敏副作用：①眩光敏感度↑300%（测试#SENS-779） ②虹膜痉挛发生率55%（记录#IRIS-891）。推荐佩戴#OPT-231滤光镜（协议#VIS-338）。",
+        attributes: {
+          "AEI": 2,     // 无能量破坏
+          "CDP": 25,    // 低操控依赖率
+          "PCC": 3,     // 无污染持续
+          "EEV": 20,    // 低熵变进化率
+          "NEI": 15,    // 极低神经侵蚀率
+          "VRL": 12,    // 低失控风险率
+          "LTV": 65,    // 中隐匿风险率
+          "STR": 15,    // 低应激触发率
+          "SSI": 8      // 极低协同失控率
+        },
+        abnormalTests: [1, 4],
+        abnormalRates: [0.45, 0.35],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "CRYGS突变": "c.1189T>G（#SEQ-779）",
+              "晶状体硬度": "邵氏40A（正常70A，#HRD-891）",
+              "蛋白质折叠": "异常β-转角结构"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "对焦范围": "3cm→∞（#FOC-779）",
+              "调节速度": "0.3秒（#RES-338）",
+              "光敏副作用": "眩光敏感↑300%（#SENS-779）"
+            }
+          }
+        }
+      },
+
+      // AB-043: 表皮锐化 (已修复)
+      {
+        id: "AB-043",
+        name: "表皮锐化",
+        enName: "Dermal Spikes",
+        level: "L-2",
+        spawnWeight: 20,
+        type: "G2-RECON",
+        range: "STRUCT",
+        desc: "对象KRT5基因c.2288A>T突变导致角蛋白β链构象锐化（X射线衍射#XRD-339），形成长度20±5mm的真皮棘刺（硬度HRC45）。机械性能：①抗拉强度120MPa ②投射距离3m（初速8m/s） ③再生周期72小时。风险包括：①自发性穿透伤（发生率30%，急救#MED-230） ②蛋白质消耗↑200%（需补充25g/日）。",
+        attributes: {
+          "AEI": 30,    // 中能量湮灭率
+          "CDP": 40,    // 中操控依赖率
+          "PCC": 35,    // 中污染持续率
+          "EEV": 35,    // 低熵变进化率
+          "NEI": 45,    // 中神经侵蚀率
+          "VRL": 50,    // 中失控风险率
+          "LTV": 10,    // 极低隐匿风险率
+          "STR": 60,    // 高应激触发率
+          "SSI": 27     // 低协同失控率
+        },
+        abnormalTests: [1, 3, 6],
+        abnormalRates: [0.65, 0.5, 0.4],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "KRT5突变": "c.2288A>T（#SEQ-339）",
+              "角蛋白构象": "β-锐化（#XRD-339）",
+              "矿物沉积": "羟基磷灰石晶格"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "物理参数": "长度20±5mm/硬度HRC45（#MEC-230）",
+              "投射能力": "3m@8m/s（#PRO-779）",
+              "营养消耗": "蛋白质↑200%"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "意外伤害": "自伤率30%（#MED-230）",
+              "再生周期": "72小时（#REG-891）",
+              "炎症反应": "C-反应蛋白↑150%"
+            }
+          }
+        }
+      },
+
+      // AB-044: 机械亲和体 (已修复)
+      {
+        id: "AB-044",
+        name: "机械亲和体",
+        enName: "Mechanical Affinity",
+        level: "L-4",
+        spawnWeight: 10,
+        type: "G4-CHIM",
+        range: "STRUCT",
+        desc: "对象神经系统检测到神经接口蛋白NIP-12（浓度9.6mg/L，质谱#MS-901），显著提升机械系统适应性：①机械操控精度+220%（测试#MOT-903） ②设备学习速度↑300% ③机械装置能量效率提升35%（电测#ELC-907）。副作用：①有机材料排斥率65%（记录#REJ-905） ②电磁敏感度↑300%（EEG#EEG-906） ③需定期补充金属离子（血铁水平监测#ION-908）。",
+        attributes: {
+          "AEI": 18,    // 较低能量湮灭
+          "CDP": 75,    // 高操控依赖
+          "PCC": 55,    // 中高持续污染
+          "EEV": 70,    // 高熵变进化
+          "NEI": 65,    // 高神经侵蚀
+          "VRL": 75,    // 高失控风险
+          "LTV": 5,     // 极低隐匿性
+          "STR": 65,    // 高应激触发
+          "SSI": 88     // 极高协同风险
+        },
+        abnormalTests: [1, 4, 7],
+        abnormalRates: [0.85, 0.75, 0.65],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "接口蛋白": "NIP-12（浓度12.8mg/L，#MS-901）",
+              "电耦合效率": "98%（#EP-902）",
+              "神经延迟": "0.8ms（#NEU-903）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "操控精度": "误差±0.02°（基准±0.06°，#MOT-903）",
+              "学习速度": "新设备掌握时间↓90%",
+              "疲劳抗性": "持续操作时间↑400%"
+            }
+          },
+          7: { // 记忆嵌入与虚拟意识测试
+            data: {
+              "排异反应": "有机材料排斥率85%（#REJ-905）",
+              "电磁敏感": "EEG异常波↑450%（#EEG-906）",
+              "金属依赖": "血铁水平↑220%（#BIO-904）"
+            }
+          }
+        }
+      },
+
+      // AB-045: 生物吸附 (已修复)
+      {
+        id: "AB-045",
+        name: "生物吸附",
+        enName: "Bio-Adhesion",
+        level: "L-2",
+        spawnWeight: 35,
+        type: "G2-RECON",
+        range: "STRUCT",
+        desc: "对象皮肤检测到粘液蛋白复合体（电镜#EM-907），掌面形成微绒毛结构（密度1200根/mm²）。吸附性能：①垂直附着力3.5N/cm²（测试#ADH-908） ②表面适应性（粗糙度Ra≤12.5μm） ③脱离时间0.2s。环境限制：①湿度<40%时效率↓70%（气候模拟#CLM-909） ②温度>35℃导致粘性失效（发生率55%，记录#TMP-910）。",
+        attributes: {
+          "AEI": 2,     // 无能量湮灭
+          "CDP": 35,    // 中操控依赖
+          "PCC": 10,    // 低持续污染
+          "EEV": 20,    // 低熵变进化
+          "NEI": 15,    // 低神经侵蚀
+          "VRL": 25,    // 低失控风险
+          "LTV": 75,    // 高隐匿性
+          "STR": 30,    // 中应激触发
+          "SSI": 15     // 低协同风险
+        },
+        abnormalTests: [1, 3, 6],
+        abnormalRates: [0.6, 0.5, 0.4],
+        testDetails: {
+          1: { // 基因序列分析
+            data: {
+              "粘液蛋白": "MUC5B变体（浓度8.8mg/cm³，#MS-907）",
+              "微绒毛": "密度1200根/mm²（#EM-907）",
+              "接触角": "θ=5°（超亲水，#WET-908）"
+            }
+          },
+          3: { // 血液反应与代谢异常检测
+            data: {
+              "附着力": "3.5N/cm²（#ADH-908）",
+              "表面适应": "Ra≤12.5μm（#SUR-909）",
+              "脱离耗能": "0.08J/cm²"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "湿度依赖": "效率↓70%（RH<40%，#CLM-909）",
+              "热失效": "发生率55%（>35℃，#TMP-910）",
+              "皮肤代谢": "葡萄糖消耗↑150%"
+            }
+          }
+        }
+      },
+
+      // AB-046: 气动操控 (已修复)
+      {
+        id: "AB-046",
+        name: "气动操控",
+        enName: "Pneumatic Control",
+        level: "L-4",
+        spawnWeight: 5,
+        type: "G4-CHIM",
+        range: "PHASE",
+        desc: "对象呼吸系统检测到高密度压电晶体簇（110簇/cm²，CT#CT-911），可操控局部气流系统（最大风速38m/s，风洞#WTD-912）。控制参数：①涡旋直径≤1.2m ②有效射程40m ③精度误差±1.2°。消耗：①基础代谢率↑220%（#MET-913） ②血氧饱和度波动±18%（监测#OX-914） ③单次持续≤75秒（测试#DUR-915）。",
+        attributes: {
+          "AEI": 65,    // 中高能量湮灭
+          "CDP": 75,    // 高操控依赖
+          "PCC": 40,    // 中持续污染
+          "EEV": 70,    // 高熵变进化
+          "NEI": 60,    // 中高神经侵蚀
+          "VRL": 75,    // 高失控风险
+          "LTV": 20,    // 低隐匿性
+          "STR": 65,    // 高应激触发
+          "SSI": 60     // 中高协同风险
+        },
+        abnormalTests: [2, 4, 6],
+        abnormalRates: [0.85, 0.75, 0.65],
+        testDetails: {
+          2: { // 神经电图与脑区活性检测
+            data: {
+              "晶体密度": "110簇/cm²（#CT-911）",
+              "气压梯度": "ΔP=150Pa（#PRS-912）",
+              "能量转化": "效率22%（#ENG-913）"
+            }
+          },
+          4: { // 感知刺激与微反应诱发
+            data: {
+              "风速": "38m/s（#WTD-912）",
+              "控制精度": "±1.2°（#ACC-913）",
+              "湍流系数": "k-ε=0.75"
+            }
+          },
+          6: { // 共振频率测试
+            data: {
+              "代谢负担": "VO₂max↑280%（#RES-914）",
+              "血氧波动": "SpO₂ 75-93%（#OX-914）",
+              "使用限制": "≤75秒/次（#DUR-915）"
+            }
+          }
+        }
+      }
+    ];
+
+
+
+    // 检测记录存储
+    let scanRecords = JSON.parse(localStorage.getItem('purityCoreRecords')) || [];
+
+    // 辅助函数
+    function padZero(num) {
+      return num < 10 ? `0${num}` : num;
+    }
+
+    function formatDate(dateStr) {
+      const date = new Date(dateStr);
+      return `${date.getFullYear()}/${padZero(date.getMonth() + 1)}/${padZero(date.getDate())}`;
+    }
+
+    function formatDateTime(dateStr) {
+      const date = new Date(dateStr);
+      return `${date.getFullYear()}/${padZero(date.getMonth() + 1)}/${padZero(date.getDate())} ${padZero(date.getHours())}:${padZero(date.getMinutes())}`;
+    }
+    // 专门解决浮点数精度问题的函数
+    function formatProbability(rate) {
+      // 将小数转换为百分比（如0.65 -> 65）
+      const percentage = Math.round(rate * 10000) / 100; // 先放大再缩小来避免精度问题
+
+      // 格式化为最简形式
+      return Number.isInteger(percentage) ? percentage.toString() : percentage.toFixed(2);
+    }
+
+    function setControlsDisabled(disabled) {
+      ['start-scan', 'save-result', 'clear-log'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = disabled;
+      });
+    }
+    /**
+     * 初始化系统日志序列（修复版）
+     */
+    function initializeSystemLog() {
+      // 创建遮罩层
+      const overlay = document.createElement('div');
+      overlay.id = 'system-init-overlay';
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.width = '100%';
+      overlay.style.height = '100%';
+      overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+      overlay.style.zIndex = '9998';
+      overlay.style.display = 'flex';
+      overlay.style.justifyContent = 'center';
+      overlay.style.alignItems = 'center';
+      overlay.style.flexDirection = 'column';
+
+      // 添加加载提示
+      const loadingText = document.createElement('div');
+      loadingText.textContent = '系统初始化中...';
+      loadingText.style.color = '#00ff00';
+      loadingText.style.fontFamily = "'Courier New', monospace";
+      loadingText.style.fontSize = '1.5rem';
+      loadingText.style.textShadow = '0 0 5px #00ff00';
+      loadingText.style.marginBottom = '20px';
+
+      overlay.appendChild(loadingText);
+      document.body.appendChild(overlay);
+
+      // 禁用所有交互元素
+      document.querySelectorAll('button, input, select, textarea, a').forEach(el => {
+        el.style.pointerEvents = 'none';
+        el.classList.add('init-disabled');
+      });
+
+      const logContainer = document.getElementById('system-log');
+      logContainer.innerHTML = '';
+
+      // 突出显示日志容器
+      logContainer.style.position = 'relative';
+      logContainer.style.zIndex = '9999';
+      logContainer.style.backgroundColor = 'rgba(0, 20, 0, 0.7)';
+      logContainer.style.border = '1px solid #00aa00';
+      logContainer.style.boxShadow = '0 0 20px rgba(0, 255, 0, 0.5)';
+      logContainer.style.padding = '15px';
+      logContainer.style.borderRadius = '5px';
+
+      setControlsDisabled(true);
+
+      const bootSequence = [
+        { delay: 1000, text: "启动量子核心..." },
+        { delay: 2500, text: "加载变异特征库..." },
+        { delay: 4000, text: "验证操作员身份: Dr. Loopia (安全等级 Omega-9)" },
+        { delay: 5500, text: "初始化神经接口..." },
+        { delay: 7000, text: "校准生物识别扫描仪..." },
+        {
+          delay: 8500,
+          text: "✅ 生物识别扫描仪校准完成",
+          isCritical: true,
+          useFullTime: true
+        },
+        {
+          delay: 10000,
+          text: "系统全功能就绪",
+          unlock: true
+        }
+      ];
+
+      bootSequence.forEach((step) => {
+        setTimeout(() => {
+          const now = new Date();
+          const timeStr = step.useFullTime ?
+            formatDateTime(now.toISOString()) :
+            `[${padZero(now.getHours())}:${padZero(now.getMinutes())}:${padZero(now.getSeconds())}]`;
+
+          const logEntry = document.createElement('div');
+          logEntry.className = 'log-entry';
+          logEntry.innerHTML = `
+        <div class="log-time">${timeStr}</div>
+        <div class="log-message">${step.text}</div>
+      `;
+
+          if (step.isCritical) {
+            logEntry.classList.add('log-critical');
+          }
+
+          logContainer.insertBefore(logEntry, logContainer.firstChild);
+
+          if (step.unlock) {
+            // 移除遮罩层并恢复交互
+            setTimeout(() => {
+              document.body.removeChild(overlay);
+              document.querySelectorAll('.init-disabled').forEach(el => {
+                el.style.pointerEvents = '';
+                el.classList.remove('init-disabled');
+              });
+              logContainer.style = ''; // 恢复日志容器原始样式
+              setControlsDisabled(false);
+
+              // ▼▼▼▼▼▼ 关键修复：初始化完成后设置搜索功能 ▼▼▼▼▼▼
+              setupSearchAndFilter();
+              renderAbilityGrid('', 'all');
+              // ▲▲▲▲▲▲ 修复结束 ▲▲▲▲▲▲
+
+              addLog("系统初始化完成，等待检测指令");
+            }, 1500); // 延迟1.5秒让用户看到最后一条消息
+          }
+        }, step.delay);
+      });
+    }
+    function getGenderName(gender) {
+      switch (gender) {
+        case 'male': return '男性';
+        case 'female': return '女性';
+        case 'other': return '其他';
+        case 'unknown': return '未知';
+        default: return '未知';
+      }
+    }
+
+    function getTestName(testNum) {
+      const tests = [
+        '基因序列异常扫描',
+        '神经电图与脑区活性检测',
+        '血液反应与代谢异常检测',
+        '感知刺激与微反应诱发',
+        '情绪剖面与恐惧反馈监测',
+        '共振频率测试',
+        '记忆嵌入与虚拟意识测试'
+      ];
+      return tests[testNum - 1] || `未知检测 (${testNum})`;
+    }
+
+    function getTypeName(type) {
+      const types = {
+        'G1-EXPR': '表达异常型',
+        'G2-RECON': '结构重组型',
+        'G3-REGD': '调控缺陷型',
+        'G4-CHIM': '异源嵌合型',
+        'G5-FRES': '能场渗透型',
+        'G6-TEMP': '超时激活型',
+        'G7-SHAD': '潜影承载型'
+      };
+      return types[type] || '未知类型';
+    }
+
+    function getTypeDescription(type) {
+      const descriptions = {
+        'G1-EXPR': '基因原有编码被过度/异常表达	多表现为超感官、超代谢、肉体强化。',
+        'G2-RECON': 'DNA结构段落异变，产生新功能	多表现为新器官、新通路、新能级反应。',
+        'G3-REGD': '基因调控系统失衡，反馈异常	导致能力易暴走、条件触发、自主性差。',
+        'G4-CHIM': '与未知来源序列融合	表现形式复杂、逻辑模糊，常为“异构化能力。',
+        'G5-FRES': '与某种微观能场产生共振反应	产生“非物理结构操控力”，如电磁力、重力扭曲。',
+        'G6-TEMP': '基因在特定时间段才激活	能力表现周期性或“记忆性”异常行为。',
+        'G7-SHAD': '基因中隐藏“非编码片段”显性化	可能为远古遗传、非人类DNA、退化遗迹重新激活。'
+      };
+      return descriptions[type] || '未知变异类型。';
+    }
+
+    function getRangeName(range) {
+      const ranges = {
+        'EMIT': '局部外放型',
+        'NEURO': '心智交互型',
+        'STRUCT': '广域结构型',
+        'PHASE': '能态跃迁型',
+        'INTRA': '体内型',
+        'BIO-MIMIC': '生物化型'
+      };
+      return ranges[range] || '未知范围';
+    }
+
+    function getRangeDescription(range) {
+      const descriptions = {
+        'EMIT': '能力表现为能量或物质的主动发射，影响范围随强度变化。',
+        'NEURO': '能力通过神经系统传播，影响范围取决于神经连接或场强。',
+        'STRUCT': '能力作用于物质结构，影响范围通常限于直接接触的物体。',
+        'PHASE': '能力表现为场效应，影响范围呈球形扩散，强度随距离衰减。',
+        'INTRA': '能力仅作用于对象自身，不对外部环境产生直接影响。',
+        'BIO-MIMIC': '能力模拟特定生物功能，影响范围取决于模仿的生物特性。'
+      };
+      return descriptions[range] || '未知作用范围。';
+    }
+
+    function getLevelName(level) {
+      const levels = {
+        'L-0': '零级因子',
+        'L-1': 'Alpha级',
+        'L-2': 'Beta级',
+        'L-3': 'Gamma级',
+        'L-4': 'Delta级',
+        'L-5': 'Omega级'
+      };
+      return levels[level] || '未知等级';
+    }
+
+    function getAttributeName(attr) {
+      const attributes = {
+        'AEI': '能量湮灭率',        // 原湮灭当量指数
+        'CDP': '操控依赖率',        // 原操控依赖性
+        'PCC': '污染持续率',        // 原污染持续系数
+        'EEV': '熵变进化率',        // 原进化熵值
+        'NEI': '神经侵蚀率',        // 原神经侵蚀指数
+        'VRL': '失控风险率',        // 原失控风险等级
+        'LTV': '隐匿风险率',        // 原潜伏威胁值
+        'STR': '应激触发率',        // 原触发敏感性
+        'SSI': '协同失控率'         // 原系统兼容协同率
+      };
+      return attributes[attr] || attr;
+    }
+
+    function getMeterClass(value) {
+      if (value < 30) return 'meter-low';
+      if (value < 50) return 'meter-medium';
+      if (value < 70) return 'meter-high';
+      if (value < 90) return 'meter-very-high';
+      return 'meter-extreme';
+    }
+
+    // 修改 addLog 函数以正确显示红色错误信息
+    function addLog(message, isError = false) {
+      const now = new Date();
+      const timeStr = `[${now.getFullYear()}/${padZero(now.getMonth() + 1)}/${padZero(now.getDate())} ${padZero(now.getHours())}:${padZero(now.getMinutes())}:${padZero(now.getSeconds())}]`;
+
+      const logEntry = document.createElement('div');
+      logEntry.className = 'log-entry';
+
+      if (isError) {
+        // 添加错误图标
+        const errorIcon = document.createElement('span');
+        errorIcon.className = 'status-indicator status-danger';
+        errorIcon.style.marginRight = '5px';
+        logEntry.appendChild(errorIcon);
+
+        // 添加错误样式类
+        logEntry.classList.add('log-error');
+      }
+
+      logEntry.innerHTML = `
+    <div class="log-time">${timeStr}</div>
+    <div class="log-message">${message}</div>
+  `;
+
+      // 修改点1：使用insertBefore将新日志插入到顶部
+      const logContainer = document.getElementById('system-log');
+      if (logContainer.firstChild) {
+        logContainer.insertBefore(logEntry, logContainer.firstChild);
+      } else {
+        logContainer.appendChild(logEntry);
+      }
+
+      // 修改点2：移除自动滚动到底部的代码
+      // 因为新日志在顶部，不需要自动滚动
+    }
+
+    function renderAbilityGrid(filter = '', levelFilter = '') {
+      const abilityGrid = document.getElementById('ability-grid');
+      abilityGrid.innerHTML = '';
+
+      // 获取搜索关键词（转换为小写）
+      const searchTerm = filter.trim().toLowerCase();
+
+      // 过滤能力（支持ID、名称、类型和描述）
+      let filteredAbilities = abilitiesDatabase.filter(ability => {
+        // 检查是否匹配等级筛选
+        if (levelFilter && levelFilter !== 'all' && ability.level !== levelFilter) {
+          return false;
+        }
+
+        // 检查是否匹配搜索关键词
+        if (searchTerm) {
+          return ability.id.toLowerCase().includes(searchTerm) ||
+            ability.name.toLowerCase().includes(searchTerm) ||
+            ability.enName.toLowerCase().includes(searchTerm) ||
+            ability.type.toLowerCase().includes(searchTerm) ||
+            ability.desc.toLowerCase().includes(searchTerm);
+        }
+
+        return true;
+      });
+
+      // 无结果处理
+      if (filteredAbilities.length === 0) {
+        abilityGrid.innerHTML = '<p>未找到匹配的能力。</p>';
+        return;
+      }
+
+      // 渲染能力卡片
+      filteredAbilities.forEach(ability => {
+        const card = document.createElement('div');
+        card.className = 'data-card';
+
+        const typeParts = ability.type.split('-');
+        const typeClass = `type-${typeParts[1].toLowerCase()}`;
+        const typeName = getTypeName(ability.type);
+
+        const levelClass = `level-${ability.level.toLowerCase()}`;
+        const levelName = getLevelName(ability.level);
+
+        card.innerHTML = `
+      <div class="data-card-header">
+        <div class="data-card-title">${ability.name}</div>
+        <div class="data-card-type">${ability.id}</div>
+      </div>
+      <div class="data-card-body">
+        <p class="en-name-line"><strong>英文名:</strong><span class="en-value">${ability.enName}</span></p>
+        <p class="ability-desc"><strong>描述:</strong> ${ability.desc}</p>
+      </div>
+      <div class="data-card-footer">
+        <span class="level-badge ${levelClass}">${ability.level} - ${levelName}</span>
+        <span class="type-badge  ${typeClass}">${typeName}</span>
+        <span class="range-badge">${ability.range}</span>
+      </div>
+    `;
+        card.addEventListener('click', function () {
+          showAbilityDetails(ability);
+        });
+
+        abilityGrid.appendChild(card);
+      });
+    }
+    // 新增：设置搜索和筛选功能
+    function setupSearchAndFilter() {
+      const searchInput = document.getElementById('ability-search');
+      const searchButton = document.getElementById('search-button');
+      const resetButton = document.getElementById('reset-button');
+      const levelFilter = document.getElementById('level-filter');
+
+      // 搜索按钮点击事件
+      searchButton.addEventListener('click', () => {
+        renderAbilityGrid(searchInput.value, levelFilter.value);
+      });
+
+      // 重置按钮点击事件
+      resetButton.addEventListener('click', () => {
+        searchInput.value = '';
+        levelFilter.value = 'all';
+        renderAbilityGrid('', 'all');
+      });
+
+      // 等级筛选变更事件
+      levelFilter.addEventListener('change', () => {
+        renderAbilityGrid(searchInput.value, levelFilter.value);
+      });
+
+      // 回车键搜索支持
+      searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          renderAbilityGrid(searchInput.value, levelFilter.value);
+        }
+      });
+    }
+    function showAbilityDetails(ability) {
+      const typeParts = ability.type.split('-');
+      const typeClass = `type-${typeParts[1].toLowerCase()}`;
+      const typeName = getTypeName(ability.type);
+      const typeDesc = getTypeDescription(ability.type);
+
+      const rangeName = getRangeName(ability.range);
+      const rangeDesc = getRangeDescription(ability.range);
+
+      const levelClass = `level-${ability.level.toLowerCase()}`;
+      const levelName = getLevelName(ability.level);
+
+      let attributesHTML = '';
+      for (const [key, value] of Object.entries(ability.attributes)) {
+        const meterClass = getMeterClass(value);
+        attributesHTML += `
+                    <div class="attribute-meter">
+                        <div class="attribute-label">
+                            <span class="attribute-name">${getAttributeName(key)} (${key})</span>
+                            <span class="attribute-value">${value}%</span>
+                        </div>
+                        <div class="meter-bar">
+                            <div class="meter-fill ${meterClass}" style="width: ${value}%"></div>
+                        </div>
+                    </div>
+                `;
+      }
+
+      let abnormalTestsHTML = '';
+      ability.abnormalTests.forEach((testNum, index) => {
+        const testName = getTestName(testNum);
+        const rate = formatProbability(ability.abnormalRates[index]); // 使用修复后的值
+
+        abnormalTestsHTML += `
+                    <li>
+                        <strong>${testName}:</strong> 异常概率 ${rate}%
+                    </li>
+                `;
+      });
+
+      let testDetailsHTML = '';
+      for (const [testNum, detail] of Object.entries(ability.testDetails)) {
+        const testName = getTestName(parseInt(testNum));
+
+        let detailItems = '';
+        for (const [key, value] of Object.entries(detail.data)) {
+          detailItems += `
+                        <div class="test-detail-value">
+                            <div class="test-detail-label">${key}:</div>
+                            <div class="test-detail-result">${value}</div>
+                        </div>
+                    `;
+        }
+
+        testDetailsHTML += `
+                    <div class="test-detail">
+                        <div class="test-detail-header">
+                            <div class="test-detail-name">${testName}</div>
+                            <div class="test-detail-status test-abnormal">异常</div>
+                        </div>
+                        ${detailItems}
+                    </div>
+                `;
+      }
+
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100%';
+      modal.style.height = '100%';
+      modal.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+      modal.style.zIndex = '2000';
+      modal.style.display = 'flex';
+      modal.style.justifyContent = 'center';
+      modal.style.alignItems = 'center';
+      modal.style.padding = '20px';
+
+      modal.innerHTML = `
+    <div style="background-color: #001100; border: 1px solid #00aa00; padding: 20px; max-width: 800px; max-height: 90vh; overflow-y: auto;">
+      <!-- 标题区域 - 修复关闭按钮布局 -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; flex-wrap: nowrap;">
+        <div class="title-wrapper" style="position: relative; display: inline-block; max-width: 80%;">
+          <h2 class="ability-title" style="margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;">
+            ${ability.name} (${ability.enName})
+          </h2>
+          <div class="tooltip-popup" style="display: none; position: absolute; pointer-events: none; top: 100%; left: 380px; margin-top: 6px; 
+              background: #002200cc; color: #aaffaa; padding: 6px 10px; border-radius: 4px; font-size: 0.85rem; 
+              white-space: normal; min-width: 100px; box-shadow: 0 0 8px #00ff00aa; z-index: 1000;">
+            ${ability.name} (${ability.enName})
+          </div>
+        </div>
+        <button id="close-modal" class="btn" style="min-width: 60px; flex-shrink: 0; margin-left: 10px;">
+          关闭
+        </button>
+      </div>
+      
+      <!-- 等级和类型徽章 -->
+      <div style="margin-bottom: 15px;">
+        <span class="level-badge ${levelClass}">${ability.level} - ${levelName}</span>
+        <span class="type-badge ${typeClass}">${typeName}</span>
+        <span class="range-badge">${ability.range} - ${rangeName}</span>
+      </div>
+      
+      <!-- 能力描述 -->
+      <div class="panel" style="margin-bottom: 15px;">
+        <div class="panel-header">
+          <h3>能力描述</h3>
+        </div>
+        <p>${ability.desc}</p>
+      </div>
+      
+      <!-- 分类信息和检测异常 -->
+      <div class="grid" style="margin-bottom: 15px;">
+        <div class="panel">
+          <div class="panel-header">
+            <h3>分类信息</h3>
+          </div>
+          <p><strong>一级分类:</strong> ${typeName} (${ability.type})</p>
+          <p>${typeDesc}</p>
+          <p><strong>作用范围:</strong> ${rangeName} (${ability.range})</p>
+          <p>${rangeDesc}</p>
+        </div>
+        
+        <div class="panel">
+          <div class="panel-header">
+            <h3>检测异常</h3>
+          </div>
+          <p>此能力通常在以下检测中显示异常:</p>
+          <ul>
+            ${abnormalTestsHTML}
+          </ul>
+        </div>
+      </div>
+      
+      <!-- 检测详情 -->
+      <div class="panel" style="margin-bottom: 15px;">
+        <div class="panel-header">
+          <h3>检测详情</h3>
+        </div>
+        ${testDetailsHTML}
+      </div>
+      
+      <!-- 能力属性 -->
+      <div class="panel" style="margin-bottom: 15px;">
+        <div class="panel-header">
+          <h3>能力属性</h3>
+        </div>
+        ${attributesHTML}
+      </div>
+      
+      <!-- 新增：属性说明面板 -->
+      <div class="panel">
+        <div class="panel-header">
+          <h3>属性说明</h3>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+          <div class="attribute-definition">
+            <span class="attribute-code">AEI</span>
+            <span class="attribute-name">能量湮灭率</span>
+            <div class="attribute-desc">能力造成的能量破坏规模</div>
+          </div>
+          <div class="attribute-definition">
+            <span class="attribute-code">CDP</span>
+            <span class="attribute-name">操控依赖率</span>
+            <div class="attribute-desc">对精密控制的依赖程度</div>
+          </div>
+          <div class="attribute-definition">
+            <span class="attribute-code">PCC</span>
+            <span class="attribute-name">污染持续率</span>
+            <div class="attribute-desc">能力影响的持久性</div>
+          </div>
+          <div class="attribute-definition">
+            <span class="attribute-code">EEV</span>
+            <span class="attribute-name">熵变进化率</span>
+            <div class="attribute-desc">能力突变的活跃程度</div>
+          </div>
+          <div class="attribute-definition">
+            <span class="attribute-code">NEI</span>
+            <span class="attribute-name">神经侵蚀率</span>
+            <div class="attribute-desc">对神经系统的侵蚀风险</div>
+          </div>
+          <div class="attribute-definition">
+            <span class="attribute-code">VRL</span>
+            <span class="attribute-name">失控风险率</span>
+            <div class="attribute-desc">能力意外暴发的概率</div>
+          </div>
+          <div class="attribute-definition">
+            <span class="attribute-code">LTV</span>
+            <span class="attribute-name">隐匿风险率</span>
+            <div class="attribute-desc">能力的可藏匿程度</div>
+          </div>
+          <div class="attribute-definition">
+            <span class="attribute-code">STR</span>
+            <span class="attribute-name">应激触发率</span>
+            <div class="attribute-desc">被环境刺激触发的概率</div>
+          </div>
+          <div class="attribute-definition">
+            <span class="attribute-code">SSI</span>
+            <span class="attribute-name">协同失控率</span>
+            <div class="attribute-desc">与其他能力互动的风险</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+      document.body.appendChild(modal);
+      const titleWrappers = document.querySelectorAll('.title-wrapper');
+
+      titleWrappers.forEach(wrapper => {
+        const title = wrapper.querySelector('.ability-title');
+        const tooltip = wrapper.querySelector('.tooltip-popup');
+
+        title.addEventListener('mouseenter', () => {
+          tooltip.style.display = 'block';
+        });
+
+        title.addEventListener('mouseleave', () => {
+          tooltip.style.display = 'none';
+        });
+      });
+
+      document.getElementById('close-modal').addEventListener('click', function () {
+        document.body.removeChild(modal);
+      });
+    }
+
+    function renderRecordsList() {
+      const recordsList = document.getElementById('records-list');
+      recordsList.innerHTML = '';
+
+      if (scanRecords.length === 0) {
+        recordsList.innerHTML = '<p>暂无检测记录。</p>';
+        return;
+      }
+
+      const sortedRecords = [...scanRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      sortedRecords.forEach(record => {
+        const recordItem = document.createElement('div');
+        recordItem.className = 'record-item';
+        recordItem.dataset.uuid = record.uuid; // 使用uuid作为标识
+
+        const levelClass = `level-${record.level.toLowerCase()}`;
+        const levelName = getLevelName(record.level);
+
+        let typeInfo = '无变异';
+        if (record.ability) {
+          const typeParts = record.ability.type.split('-');
+          typeInfo = getTypeName(record.ability.type);
+        }
+
+        recordItem.innerHTML = `
+      <div class="record-header">
+        <div class="record-name">${record.name}</div>
+        <div class="record-date">${formatDate(record.date)}</div>
+        <button class="delete-record-btn" data-uuid="${record.uuid}" title="删除记录">×</button>
+      </div>
+      <div class="record-details">
+        <div class="record-id">ID: ${record.id}</div>
+        <div class="record-status">${record.isAbnormal ? '异常' : '正常'}</div>
+        <div class="record-level"><span class="level-badge ${levelClass}">${record.level} - ${levelName}</span></div>
+        <div class="record-type">${typeInfo}</div>
+      </div>
+    `;
+
+        recordItem.addEventListener('click', function (e) {
+          if (!e.target.classList.contains('delete-record-btn')) {
+            showRecordDetails(record);
+          }
+        });
+
+        recordsList.appendChild(recordItem);
+      });
+
+      setupDeleteButtons();
+    }
+    function setupDeleteButtons() {
+      document.querySelectorAll('.delete-record-btn').forEach(button => {
+        button.addEventListener('click', function (e) {
+          e.stopPropagation();
+          const recordUuid = this.dataset.uuid;
+          deleteRecord(recordUuid);
+        });
+      });
+    }
+
+    function deleteRecord(targetUuid) {
+      // 先获取要删除的记录信息（用于日志）
+      const deletedRecord = scanRecords.find(record => record.uuid === targetUuid);
+      const displayId = deletedRecord ? deletedRecord.id : '未知';
+
+      // 添加删除动画
+      const recordItem = document.querySelector(`.record-item[data-uuid="${targetUuid}"]`);
+      if (recordItem) {
+        recordItem.style.transition = 'all 0.3s';
+        recordItem.style.opacity = '0';
+        recordItem.style.height = '0';
+        recordItem.style.padding = '0';
+        recordItem.style.margin = '0';
+        recordItem.style.border = 'none';
+      }
+
+      // 延迟执行实际删除（等待动画完成）
+      setTimeout(() => {
+        // 从内存中删除
+        scanRecords = scanRecords.filter(record => record.uuid !== targetUuid);
+
+        // 更新本地存储
+        localStorage.setItem('purityCoreRecords', JSON.stringify(scanRecords));
+
+        // 重新渲染列表
+        renderRecordsList();
+
+        // 记录日志（确保显示正确的ID）
+        addLog(`已删除检测记录 ID: ${displayId}`);
+      }, 300);
+    }
+    function migrateOldRecords() {
+      const oldRecords = JSON.parse(localStorage.getItem('purityCoreRecords')) || [];
+
+      // 检查是否需要迁移（没有uuid字段）
+      if (oldRecords.length > 0 && !oldRecords[0].uuid) {
+        const migratedRecords = oldRecords.map(record => ({
+          ...record,
+          uuid: self.crypto.randomUUID() // 为旧记录添加uuid
+        }));
+
+        localStorage.setItem('purityCoreRecords', JSON.stringify(migratedRecords));
+        scanRecords = migratedRecords;
+        addLog("系统已自动迁移旧版记录数据");
+      }
+    }
+    function showRecordDetails(record) {
+      let attributesHTML = '';
+      if (record.ability) {
+        for (const [key, value] of Object.entries(record.ability.attributes)) {
+          const meterClass = getMeterClass(value);
+          attributesHTML += `
+                        <div class="attribute-meter">
+                            <div class="attribute-label">
+                                <span class="attribute-name">${getAttributeName(key)} (${key})</span>
+                                <span class="attribute-value">${value}%</span>
+                            </div>
+                            <div class="meter-bar">
+                                <div class="meter-fill ${meterClass}" style="width: ${value}%"></div>
+                            </div>
+                        </div>
+                    `;
+        }
+      }
+
+      let abnormalTestsHTML = '';
+      if (record.abnormalTests.length > 0) {
+        record.abnormalTests.forEach(testNum => {
+          const testName = getTestName(testNum);
+          abnormalTestsHTML += `
+                        <li>
+                            <strong>${testName}:</strong> 异常
+                        </li>
+                    `;
+        });
+      } else {
+        abnormalTestsHTML = '<li>无异常检测项</li>';
+      }
+
+      let testDetailsHTML = '';
+      if (record.testDetails && Object.keys(record.testDetails).length > 0) {
+        for (const [testNum, detail] of Object.entries(record.testDetails)) {
+          const testName = getTestName(parseInt(testNum));
+
+          let detailItems = '';
+          for (const [key, value] of Object.entries(detail.data)) {
+            detailItems += `
+                            <div class="test-detail-value">
+                                <div class="test-detail-label">${key}:</div>
+                                <div class="test-detail-result">${value}</div>
+                            </div>
+                        `;
+          }
+
+          testDetailsHTML += `
+                        <div class="test-detail">
+                            <div class="test-detail-header">
+                                <div class="test-detail-name">${testName}</div>
+                                <div class="test-detail-status ${record.abnormalTests.includes(parseInt(testNum)) ? 'test-abnormal' : 'test-normal'}">
+                                    ${record.abnormalTests.includes(parseInt(testNum)) ? '异常' : '正常'}
+                                </div>
+                            </div>
+                            ${detailItems}
+                        </div>
+                    `;
+        }
+      } else if (record.isAbnormal) {
+        testDetailsHTML = '<p>无详细检测数据记录。</p>';
+      } else {
+        testDetailsHTML = `
+                    <div class="test-detail">
+                        <div class="test-detail-header">
+                            <div class="test-detail-name">综合评估</div>
+                            <div class="test-detail-status test-normal">正常</div>
+                        </div>
+                        <div class="test-detail-data">
+                            <div class="test-detail-value">
+                                <div class="test-detail-label">检测结论:</div>
+                                <div class="test-detail-result">所有检测参数均在正常范围内</div>
+                            </div>
+                            <div class="test-detail-value">
+                                <div class="test-detail-label">变异概率:</div>
+                                <div class="test-detail-result">&lt;0.1%</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+      }
+
+      let abilityDetails = '';
+      if (record.ability) {
+        const typeParts = record.ability.type.split('-');
+        const typeClass = `type-${typeParts[1].toLowerCase()}`;
+        const typeName = getTypeName(record.ability.type);
+        const typeDesc = getTypeDescription(record.ability.type);
+
+        const rangeName = getRangeName(record.ability.range);
+        const rangeDesc = getRangeDescription(record.ability.range);
+
+        abilityDetails = `
+                    <div class="panel" style="margin-bottom: 15px;">
+                        <div class="panel-header">
+                            <h3>变异能力详情</h3>
+                        </div>
+                        <p><strong>名称:</strong> ${record.ability.name} (${record.ability.enName})</p>
+                        <p><strong>描述:</strong> ${record.ability.desc}</p>
+                        
+                        <div style="margin-top: 10px;">
+                            <span class="type-badge ${typeClass}">${typeName}</span>
+                            <span class="range-badge">${rangeName}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="panel" style="margin-bottom: 15px;">
+                        <div class="panel-header">
+                            <h3>能力属性</h3>
+                        </div>
+                        ${attributesHTML}
+                    </div>
+                `;
+      }
+
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100%';
+      modal.style.height = '100%';
+      modal.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+      modal.style.zIndex = '2000';
+      modal.style.display = 'flex';
+      modal.style.justifyContent = 'center';
+      modal.style.alignItems = 'center';
+      modal.style.padding = '20px';
+
+      modal.innerHTML = `
+    <div style="
+      background-color: #001100;
+      border: 1px solid #00aa00;
+      padding: 20px;
+      width: min(800px, 90vw);
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+    ">
+      <!-- 顶部标题栏 -->
+      <div style="
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 15px;
+        flex-shrink: 0;
+      ">
+        <h2>检测记录详情</h2>
+        <button id="close-modal" class="btn" style="align-self: flex-start;">关闭</button>
+      </div>
+
+      <!-- 可滚动内容区 -->
+      <div style="
+        overflow-y: auto;
+        padding-right: 5px;
+        flex-grow: 1;
+      ">
+        <!-- 对象信息 -->
+        <div class="panel" style="margin-bottom: 15px;">
+          <div class="panel-header">
+            <h3>对象信息</h3>
+          </div>
+          <p><strong>姓名:</strong> ${record.name}</p>
+          <p><strong>性别:</strong> ${record.gender}</p>
+          <p><strong>识别号:</strong> ${record.id}</p>
+          <p><strong>检测时间:</strong> ${formatDateTime(record.date)}</p>
+        </div>
+
+        <!-- 检测结果 -->
+        <div class="panel" style="margin-bottom: 15px;">
+          <div class="panel-header">
+            <h3>检测结果</h3>
+          </div>
+          <p><strong>状态:</strong> ${record.isAbnormal ? '异常' : '正常'}</p>
+          <p><strong>变异等级:</strong> 
+            <span class="level-badge level-${record.level.toLowerCase()}">
+              ${record.level} - ${getLevelName(record.level)}
+            </span>
+          </p>
+          ${record.isAbnormal ? `
+          <div style="margin-top: 10px;">
+            <h4>异常检测项</h4>
+            <ul>
+              ${abnormalTestsHTML}
+            </ul>
+          </div>
+          ` : ''}
+        </div>
+
+        <!-- 检测详情 -->
+        <div class="panel" style="margin-bottom: 15px;">
+          <div class="panel-header">
+            <h3>检测详情</h3>
+          </div>
+          ${testDetailsHTML}
+        </div>
+
+        <!-- 能力详情 -->
+        ${abilityDetails || `
+        <div style="
+          text-align: center;
+          padding: 30px;
+          color: #669966;
+          font-style: italic;
+          border: 1px dashed #005500;
+          border-radius: 3px;
+        ">
+          未检测到异常能力特征
+        </div>
+        `}
+      </div>
+    </div>
+  `;
+
+      document.body.appendChild(modal);
+
+      document.getElementById('close-modal').addEventListener('click', function () {
+        document.body.removeChild(modal);
+      });
+    }
+
+    function setupTabs() {
+      const tabButtons = document.querySelectorAll('.tab-btn');
+      const tabContents = document.querySelectorAll('.tab-content');
+
+      tabButtons.forEach(button => {
+        button.addEventListener('click', function () {
+          const tabId = this.getAttribute('data-tab');
+
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          this.classList.add('active');
+
+          tabContents.forEach(content => content.classList.remove('active'));
+          document.getElementById(`${tabId}-tab`).classList.add('active');
+        });
+      });
+    }
+
+    // 加权随机选择函数
+    function selectRandomAbility() {
+      // 计算所有权重的总和
+      const totalWeight = abilitiesDatabase.reduce((sum, ability) => sum + ability.spawnWeight, 0);
+
+      // 生成一个0到总权重之间的随机数
+      const random = Math.random() * totalWeight;
+
+      // 遍历能力数据库，找到随机数落在哪个能力的权重区间
+      let accumulatedWeight = 0;
+      for (const ability of abilitiesDatabase) {
+        accumulatedWeight += ability.spawnWeight;
+        if (random <= accumulatedWeight) {
+          return ability;
+        }
+      }
+      // 如果由于浮点精度问题没有找到，返回最后一个能力
+      return abilitiesDatabase[abilitiesDatabase.length - 1];
+    }
+
+    let currentScan = null;
+    let isScanning = false;
+
+    function startScanSequence() {
+      const scanBtn = document.getElementById('start-scan');
+
+      /* ---------- 防止重复点击 ---------- */
+      if (isScanning) {
+        addLog("警告：检测正在进行中，请勿重复操作！", true);
+        scanBtn.classList.add('btn-shake');
+        setTimeout(() => scanBtn.classList.remove('btn-shake'), 500);
+        return;                           // ← 正在扫描时直接退出，不清空任何进度
+      }
+
+      /* ---------- 仅在真正开始新扫描时初始化主进度条分段 ---------- */
+      const totalSegments = 7;
+      const progressContainer = document.getElementById('scan-progress-container');
+
+      // 关键修改：检查是否已有进度条分段
+      const existingSegments = progressContainer.querySelectorAll('.scan-progress-segment');
+
+      // 如果已有进度条分段，且数量正确，则复用它们
+      if (existingSegments.length !== totalSegments) {
+        progressContainer.innerHTML = '';
+        for (let i = 0; i < totalSegments; i++) {
+          const segment = document.createElement('div');
+          segment.classList.add('scan-progress-segment');
+          segment.id = `progress-segment-${i + 1}`;
+          progressContainer.appendChild(segment);
+        }
+      }
+
+      /* ---------- 表单校验 ---------- */
+      const name = document.getElementById('subject-name').value.trim();
+      const gender = document.getElementById('subject-gender').value;
+      const id = document.getElementById('subject-id').value.trim();
+
+      if (!name || !id) {
+        addLog("错误: 必须填写姓名和识别号才能开始检测。", true);
+        scanBtn.classList.add('btn-shake');
+        setTimeout(() => scanBtn.classList.remove('btn-shake'), 500);
+        return;
+      }
+
+      isScanning = true;
+      scanBtn.classList.add('btn-disabled');
+
+      /* ---------- 初始化 currentScan ---------- */
+      currentScan = {
+        uuid: self.crypto.randomUUID(),
+        name,
+        gender: getGenderName(gender),
+        id,
+        date: new Date().toISOString(),
+        isAbnormal: false,
+        level: 'L-0',
+        ability: null,
+        abnormalTests: [],
+        testDetails: {}
+      };
+
+      /* ---------- UI 初始化 ---------- */
+      document.getElementById('display-name').textContent = name;
+      document.getElementById('display-gender').textContent = currentScan.gender;
+      document.getElementById('display-id').textContent = id;
+      document.getElementById('display-time').textContent = formatDateTime(currentScan.date);
+
+      document.getElementById('subject-display').classList.remove('hidden');
+      document.getElementById('result-panel').style.display = 'none';
+      document.getElementById('normal-result').classList.add('hidden');
+      document.getElementById('abnormal-result').classList.add('hidden');
+
+      /* ---------- 清空旧进度 ---------- */
+      const scanProgressBar = document.getElementById('scan-progress');
+      if (scanProgressBar) scanProgressBar.style.width = '0%';
+
+      for (let i = 1; i <= 7; i++) {
+        const stepBar = document.getElementById(`progress-${i}`);
+        if (stepBar) stepBar.style.width = '0%';
+
+        const resEl = document.getElementById(`result-${i}`);
+        if (resEl) {
+          resEl.textContent = '正常';
+          resEl.className = 'scan-result result-normal';
+        }
+
+        const stepEl = document.getElementById(`step-${i}`);
+        if (stepEl) stepEl.classList.remove('active');
+
+        /* 清除高亮状态 */
+        const seg = document.getElementById(`progress-segment-${i}`);
+        if (seg) seg.classList.remove('filled', 'filled-danger');
+      }
+
+      addLog(`开始检测序列 - 对象: ${currentScan.name} (ID: ${currentScan.id})`);
+      document.getElementById('grid-pulse').style.display = 'block';
+      document.getElementById('glitch-overlay').style.display = 'block';
+
+      HackEffects.startAll();
+      document.getElementById('scan-status').textContent = '检测中...';
+
+      /* ---------- 随机能力逻辑 ---------- */
+      if (Math.random() < 0.35) {
+        currentScan.ability = selectRandomAbility();
+        currentScan.level = currentScan.ability.level;
+        currentScan.isAbnormal = true;
+
+        currentScan.ability.abnormalTests.forEach((t, idx) => {
+          if (Math.random() < currentScan.ability.abnormalRates[idx]) {
+            currentScan.abnormalTests.push(t);
+            currentScan.testDetails[t] = currentScan.ability.testDetails[t];
+          }
+        });
+
+        if (currentScan.abnormalTests.length === 0) {
+          const firstT = currentScan.ability.abnormalTests[0];
+          currentScan.abnormalTests.push(firstT);
+          currentScan.testDetails[firstT] = currentScan.ability.testDetails[firstT];
+        }
+      }
+
+      /* ---------- 扫描流程 ---------- */
+      let currentStep = 0;
+      const totalSteps = 7;
+
+      function runNextStep() {
+        /* 完成上一小步处理 */
+        if (currentStep > 0) {
+          const prevBar = document.getElementById(`progress-${currentStep}`);
+          if (prevBar) prevBar.style.width = '100%';
+
+          const abnormal = currentScan.abnormalTests.includes(currentStep);
+          const resultEl = document.getElementById(`result-${currentStep}`);
+          resultEl.textContent = abnormal ? '异常' : '正常';
+          resultEl.className = abnormal ? 'scan-result result-danger'
+            : 'scan-result result-normal';
+
+          const stepEl = document.getElementById(`step-${currentStep}`);
+          if (stepEl) stepEl.classList.remove('active');
+
+          if (scanProgressBar) {
+            const percent = Math.floor((currentStep / totalSteps) * 100);
+            scanProgressBar.style.width = `${percent}%`;
+          }
+
+          /* 主进度格高亮/异常闪烁 */
+          const seg = document.getElementById(`progress-segment-${currentStep}`);
+          if (seg) {
+            seg.classList.remove('filled', 'filled-danger');
+            seg.classList.add(abnormal ? 'filled-danger' : 'filled');
+          }
+        }
+
+        /* 进入下一步 */
+        currentStep++;
+
+        if (currentStep > totalSteps) {
+          document.getElementById('scan-status').textContent = '检测完成';
+          if (scanProgressBar) scanProgressBar.style.width = '100%';
+
+          setTimeout(() => {
+            isScanning = false;
+            scanBtn.classList.remove('btn-disabled');
+            showScanResult();
+          }, Math.random() * 3000 + 2500);
+          return;
+        }
+
+        const testName = getTestName(currentStep);
+        addLog(`${testName}开始...`);
+
+        const stepBar = document.getElementById(`progress-${currentStep}`);
+        stepBar.style.width = '0%';
+        stepBar.classList.remove('progress-bar-danger');
+
+        const resEl = document.getElementById(`result-${currentStep}`);
+        resEl.textContent = '检测中';
+        resEl.className = 'scan-result result-pending';
+
+        const stepEl = document.getElementById(`step-${currentStep}`);
+        stepEl.classList.add('active');
+
+        const abnormal = currentScan.abnormalTests.includes(currentStep);
+        let logged = false;
+
+        const duration = Math.random() * 2000 + 10000;
+        const startTime = Date.now();
+
+        function updateProgress() {
+          const progress = Math.min(((Date.now() - startTime) / duration) * 100, 100);
+          stepBar.style.width = `${progress}%`;
+
+          if (abnormal && progress >= 50 && !logged) {
+            stepBar.classList.add('progress-bar-danger');
+            addLog(`警告: 在${testName}中检测到异常!`, true);
+            logged = true;
+            resEl.textContent = '异常';
+            resEl.className = 'scan-result result-danger';
+          }
+
+          if (progress < 100) {
+            requestAnimationFrame(updateProgress);
+          } else {
+            if (!logged) {
+              addLog(`${testName}完成，未发现明显异常。`);
+              resEl.textContent = '正常';
+              resEl.className = 'scan-result result-normal';
+            }
+            setTimeout(runNextStep, Math.random() * 2000 + 1000);
+          }
+        }
+        updateProgress();
+      }
+
+      runNextStep();
+    }
+
+
+
+    // =========================================================
+    // 永久效果（始终显示）：包含网格脉冲、故障覆盖、二进制流
+    // =========================================================
+    const PermanentEffects = {
+      elements: {
+        gridPulse: document.getElementById('grid-pulse'),
+        glitchOverlay: document.getElementById('glitch-overlay'),
+        binaryContainer: document.getElementById('binary-container')   // ← 新增
+      },
+
+      // 启动所有永久效果
+      startAll: function () {
+        if (this.elements.gridPulse) {
+          this.elements.gridPulse.style.display = 'block';
+          this.startGridPulse();
+        }
+
+        if (this.elements.glitchOverlay) {
+          this.elements.glitchOverlay.style.display = 'block';
+          this.startGlitchEffect();
+        }
+
+        if (this.elements.binaryContainer) {
+          this.elements.binaryContainer.style.display = 'block';
+          this.startBinaryStream();                                      // ← 新增
+        }
+      },
+
+      // 网格脉冲
+      startGridPulse: function () {
+        this.elements.gridPulse.classList.add('grid-pulse');
+      },
+
+      // 故障艺术覆盖
+      startGlitchEffect: function () {
+        // 清除旧类
+        this.elements.glitchOverlay.classList.remove('glitch-overlay');
+        this.elements.glitchOverlay.classList.remove('glitch-overlay-enhanced');
+        void this.elements.glitchOverlay.offsetWidth;                   // 强制重排
+        // 添加动画类
+        this.elements.glitchOverlay.classList.add('glitch-overlay-enhanced');
+
+        // 清除旧计时器
+        if (this.glitchInterval) clearInterval(this.glitchInterval);
+
+        // 更频繁、更明显的故障效果
+        this.glitchInterval = setInterval(() => {
+          if (Math.random() > 0.2) {
+            const glitchType = Math.floor(Math.random() * 4);
+            switch (glitchType) {
+              case 0: // 颜色偏移
+                this.elements.glitchOverlay.style.filter = 'hue-rotate(90deg)';
+                setTimeout(() => {
+                  this.elements.glitchOverlay.style.filter = '';
+                }, 30 + Math.random() * 70);
+                break;
+              case 1: // 强烈闪烁
+                this.elements.glitchOverlay.style.opacity = '0.8';
+                setTimeout(() => {
+                  this.elements.glitchOverlay.style.opacity = '0.1';
+                }, 20 + Math.random() * 50);
+                break;
+              case 2: // 位置偏移
+                const offsetX = (Math.random() - 0.5) * 30; // -15px–15px
+                const offsetY = (Math.random() - 0.5) * 15; // -7.5px–7.5px
+                this.elements.glitchOverlay.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+                setTimeout(() => {
+                  this.elements.glitchOverlay.style.transform = '';
+                }, 30 + Math.random() * 60);
+                break;
+              case 3: // 缩放扭曲
+                const scale = 1 + (Math.random() - 0.5) * 0.2; // 0.9–1.1
+                this.elements.glitchOverlay.style.transform = `scale(${scale})`;
+                setTimeout(() => {
+                  this.elements.glitchOverlay.style.transform = '';
+                }, 40 + Math.random() * 80);
+                break;
+            }
+          }
+        }, 80 + Math.random() * 120); // 80–200 ms
+      },
+
+      // 二进制流（永久）
+      startBinaryStream: function () {
+        const STREAM_INTERVAL = 6000;   // 每 6 s 生成
+        const STREAM_LIFETIME = 30000;  // 单条存活 30 s
+        const STREAM_COUNT = 2;      // 每波 2 条
+
+        // 防止重复启动
+        if (this.binaryStreamTimer) clearInterval(this.binaryStreamTimer);
+
+        const spawnStream = () => {
+          for (let i = 0; i < STREAM_COUNT; i++) {
+            const stream = document.createElement('div');
+            stream.className = 'binary-stream';
+            // 随机位置与速度
+            stream.style.top = `${Math.random() * 100}%`;
+            stream.style.animationDuration = `${25 + Math.random() * 20}s`;
+
+            // 生成稀疏 0/1 字符串
+            let binaryString = '';
+            const charCount = 15 + Math.floor(Math.random() * 15);
+            for (let j = 0; j < charCount; j++) {
+              if (Math.random() > 0.7) binaryString += ' ';
+              if (Math.random() > 0.3) binaryString += Math.random() > 0.5 ? '1' : '0';
+              if (Math.random() > 0.6) binaryString += ' '.repeat(1 + Math.floor(Math.random() * 3));
+            }
+            stream.textContent = binaryString;
+            this.elements.binaryContainer.appendChild(stream);
+
+            // 自动清除
+            setTimeout(() => {
+              if (stream.parentNode) stream.remove();
+            }, STREAM_LIFETIME);
+          }
+        };
+
+        spawnStream();                                           // 立即一波
+        this.binaryStreamTimer = setInterval(spawnStream, STREAM_INTERVAL);
+      }
+    };
+
+    // =========================================================
+    // 临时效果（检测流程期间显示）：扫描线 + 波纹
+    // 二进制流已移至永久效果，此处删除相关逻辑
+    // =========================================================
+    const HackEffects = {
+      elements: {
+        scanLineContainer: document.getElementById('scan-line-container'),
+        distortionContainer: document.getElementById('distortion-container')
+      },
+
+      // 启动所有临时效果
+      startAll: function () {
+        for (const key in this.elements) {
+          if (this.elements[key]) this.elements[key].style.display = 'block';
+        }
+        this.startScanLine();
+        this.startDistortionWaves();
+      },
+
+      // 停止所有临时效果
+      stopAll: function () {
+        for (const key in this.elements) {
+          if (this.elements[key]) {
+            this.elements[key].style.display = 'none';
+            if (this.elements[key].innerHTML !== undefined) {
+              this.elements[key].innerHTML = '';
+            }
+          }
+        }
+      },
+
+      // 扫描线
+      startScanLine: function () {
+        const createLine = () => {
+          const line = document.createElement('div');
+          line.className = 'scan-line';
+          this.elements.scanLineContainer.appendChild(line);
+          // 超过 1 条删最早
+          if (this.elements.scanLineContainer.children.length > 1) {
+            this.elements.scanLineContainer.firstElementChild.remove();
+          }
+        };
+        createLine();
+        this.scanInterval = setInterval(createLine, 3600); // 3.6 s
+      },
+
+      // 波纹
+      startDistortionWaves: function () {
+        if (this.stopDistortionWaves) this.stopDistortionWaves(); // 清旧
+
+        const CHECK_EVERY = 4000;
+        const FORCE_AFTER = 8000;
+        let lastWaveTime = Date.now();
+        this.distortionTimerId = null;
+
+        const spawnWave = () => {
+          const wave = document.createElement('div');
+          wave.className = 'distortion-wave';
+          wave.style.left = `${Math.random() * 100}%`;
+          wave.style.top = `${Math.random() * 100}%`;
+          wave.addEventListener('animationend', () => wave.remove());
+          this.elements.distortionContainer.appendChild(wave);
+          lastWaveTime = Date.now();
+        };
+
+        const startTimer = () => {
+          if (this.distortionTimerId) return;
+          this.distortionTimerId = setInterval(() => {
+            const elapsed = Date.now() - lastWaveTime;
+            if (Math.random() > 0.5 || elapsed > FORCE_AFTER) spawnWave();
+          }, CHECK_EVERY);
+        };
+
+        const stopTimer = () => {
+          clearInterval(this.distortionTimerId);
+          this.distortionTimerId = null;
+        };
+
+        spawnWave();
+        startTimer();
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            stopTimer();
+          } else {
+            lastWaveTime = Date.now();
+            startTimer();
+          }
+        });
+
+        this.stopDistortionWaves = () => {
+          stopTimer();
+          this.elements.distortionContainer.innerHTML = '';
+        };
+      }
+    };
+
+
+    function showScanResult() {
+      // 显示结果面板
+      document.getElementById('result-panel').style.display = 'block';
+
+      // 停止所有特效
+      HackEffects.stopAll();
+
+      // 清除之前的人员信息
+      const resultContent = document.getElementById('result-content');
+      if (resultContent) {
+        const oldInfo = resultContent.querySelector('.result-subject-info');
+        if (oldInfo) oldInfo.remove();
+
+        // 修正后的网格布局（时间正确对齐）
+        const subjectInfo = `
+      <div class="result-subject-info">
+        <div class="info-item">
+          <span class="info-label">ID:</span>
+          <span class="info-value">${currentScan.id}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">姓名:</span>
+          <span class="info-value">${currentScan.name}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">性别:</span>
+          <span class="info-value">${currentScan.gender}</span>
+        </div>
+        <div class="info-item time-item">
+          <span class="info-label">检测时间:</span>
+          <span class="info-value">${formatDateTime(currentScan.date)}</span>
+        </div>
+      </div>
+    `;
+        resultContent.insertAdjacentHTML('afterbegin', subjectInfo);
+      }
+
+      // 4. 重置检测状态面板
+      const statusPanel = document.querySelector('#scan-tab > .panel:nth-child(2)');
+      if (statusPanel) {
+        const scanStatus = document.getElementById('scan-status');
+        if (scanStatus) scanStatus.textContent = '待机';
+
+        const subjectDisplay = document.getElementById('subject-display');
+        if (subjectDisplay) subjectDisplay.classList.add('hidden');
+      }
+      // ...保持原有的检测结果显示逻辑不变...
+
+      // 5. 处理检测结果显示（完全保持您原有的逻辑）
+      if (currentScan.isAbnormal) {
+        document.getElementById('normal-result').classList.add('hidden');
+        document.getElementById('abnormal-result').classList.remove('hidden');
+
+        document.getElementById('abnormal-level').textContent = currentScan.level;
+
+        // 生成异常检测列表
+        const abnormalList = document.getElementById('abnormal-list');
+        abnormalList.innerHTML = '';
+        currentScan.abnormalTests.forEach(testNum => {
+          const li = document.createElement('li');
+          li.textContent = getTestName(testNum);
+          abnormalList.appendChild(li);
+        });
+
+        // 生成检测详情
+        const testDetails = document.getElementById('test-details');
+        testDetails.innerHTML = '';
+        for (const [testNum, detail] of Object.entries(currentScan.testDetails)) {
+          const testName = getTestName(parseInt(testNum));
+          let detailItems = '';
+          for (const [key, value] of Object.entries(detail.data)) {
+            detailItems += `
+          <div class="test-detail-value">
+            <div class="test-detail-label">${key}:</div>
+            <div class="test-detail-result">${value}</div>
+          </div>
+        `;
+          }
+
+          const detailDiv = document.createElement('div');
+          detailDiv.className = 'test-detail';
+          detailDiv.innerHTML = `
+        <div class="test-detail-header">
+          <div class="test-detail-name">${testName}</div>
+          <div class="test-detail-status test-abnormal">异常</div>
+        </div>
+        ${detailItems}
+      `;
+          testDetails.appendChild(detailDiv);
+        }
+
+        // 处理能力详情
+        if (currentScan.ability) {
+          document.getElementById('ability-desc').textContent = currentScan.ability.desc;
+
+          // 生成能力属性
+          const abilityAttributes = document.getElementById('ability-attributes');
+          abilityAttributes.innerHTML = '';
+          for (const [key, value] of Object.entries(currentScan.ability.attributes)) {
+            const meterClass = getMeterClass(value);
+            const attrDiv = document.createElement('div');
+            attrDiv.className = 'attribute-meter';
+            attrDiv.innerHTML = `
+          <div class="attribute-label">
+            <span class="attribute-name">${getAttributeName(key)} (${key})</span>
+            <span class="attribute-value">${value}%</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill ${meterClass}" style="width: ${value}%"></div>
+          </div>
+        `;
+            abilityAttributes.appendChild(attrDiv);
+          }
+
+          // 生成分类信息
+          const abilityClassification = document.getElementById('ability-classification');
+          const typeParts = currentScan.ability.type.split('-');
+          const typeName = getTypeName(currentScan.ability.type);
+          const typeDesc = getTypeDescription(currentScan.ability.type);
+          const rangeName = getRangeName(currentScan.ability.range);
+          const rangeDesc = getRangeDescription(currentScan.ability.range);
+          const levelName = getLevelName(currentScan.level);
+
+          abilityClassification.innerHTML = `
+        <p><strong>变异等级:</strong> <span class="level-badge level-${currentScan.level.toLowerCase()}">${currentScan.level} - ${levelName}</span></p>
+        <p><strong>类型分类:</strong> <span class="type-badge type-${typeParts[1].toLowerCase()}">${typeName}</span></p>
+        <p>${typeDesc}</p>
+        <p><strong>作用范围:</strong> <span class="range-badge">${rangeName}</span></p>
+        <p>${rangeDesc}</p>
+      `;
+
+          addLog(`检测到潜在变异能力: ${currentScan.ability.name} (${currentScan.ability.type})`, true);
+        } else {
+          addLog("检测到异常变异迹象，但未能识别具体能力");
+        }
+
+        // 处理高级别警报
+        if (currentScan.level === 'L-4' || currentScan.level === 'L-5') {
+          const isCritical = (currentScan.level === 'L-5');
+          showAlert(`检测到 ${currentScan.level} 级变异体！${isCritical ? '立即' : '建议'}启动隔离协议！`, isCritical);
+          addLog(`警告:检测到 ${currentScan.level} 级变异体！${isCritical ? '立即' : '建议'}启动隔离协议！`, true);
+        }
+
+        addLog(`检测完成: 异常 - 变异等级 ${currentScan.level}`, true);
+      } else {
+        // 正常结果显示
+        document.getElementById('normal-result').classList.remove('hidden');
+        document.getElementById('abnormal-result').classList.add('hidden');
+        addLog("检测完成: 正常 - 未检测到变异迹象");
+        addLog("未检测到变异能力迹象");
+      }
+    }
+
+    function showAlert(message, isCritical = false) {
+      const alertBox = document.querySelector('.alert-message');
+      const alertText = document.getElementById('alert-message-text');
+      const siren = document.querySelector('.alert-siren');
+
+      // 重置样式
+      alertBox.style.animation = 'none';
+      siren.style.animation = 'none';
+      void alertBox.offsetWidth;
+      void siren.offsetWidth;
+
+      // 设置内容
+      alertText.textContent = message;
+
+      // 根据警报级别设置不同样式
+      if (isCritical) {
+        // L-5级：保持所有夸张效果（完全不变）
+        alertBox.style.animation = 'textFlicker 0.3s infinite alternate, textShake 0.5s infinite linear';
+        alertBox.style.boxShadow = '0 0 30px rgba(255, 0, 0, 0.7)';
+        siren.style.animation = 'bgPulse 1.8s infinite ease-in-out';
+        siren.style.backgroundColor = 'rgba(255, 0, 0, 0.3)';
+      } else {
+        // L-4级：仅修改背景透明度（其他保持不变）
+        alertBox.style.animation = 'textFlicker 0.5s infinite alternate';
+        alertBox.style.boxShadow = '0 0 15px rgba(255, 0, 0, 0.3)';
+        siren.style.animation = 'bgPulse 2.5s infinite ease-in-out';
+        siren.style.backgroundColor = 'rgba(255, 60, 60, 0.08)'; // 修改点：降低红色饱和度和透明度
+      }
+
+      // 显示警报
+      siren.style.display = 'block';
+      alertBox.style.display = 'block';
+
+      // 禁用其他交互（保持不变）
+      document.querySelectorAll('button:not(#alert-ack)').forEach(btn => {
+        btn.disabled = true;
+      });
+    }
+    function initEventListeners() {
+      document.getElementById('start-scan').addEventListener('click', startScanSequence);
+
+      document.getElementById('save-result').addEventListener('click', function () {
+        // 检查当前记录的UUID是否已存在
+        const isAlreadySaved = scanRecords.some(record => record.uuid === currentScan.uuid);
+
+        if (isAlreadySaved) {
+          // 如果已存在，显示红色错误日志
+          addLog(`错误：检测记录 ${currentScan.id} 已保存，不可重复保存！`, true);
+
+          // 添加抖动动画效果（可选）
+          const saveBtn = this;
+          saveBtn.classList.add('btn-shake');
+          setTimeout(() => saveBtn.classList.remove('btn-shake'), 500);
+
+          return;
+        }
+
+        // 正常保存流程
+        scanRecords.push({ ...currentScan });
+        localStorage.setItem('purityCoreRecords', JSON.stringify(scanRecords));
+        addLog(`检测结果已保存 - 对象: ${currentScan.name} (ID: ${currentScan.id})`);
+        renderRecordsList();
+
+        // 显示成功提示（保持不变）
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-info';
+        alert.innerHTML = '<span class="status-indicator status-normal"></span> <strong>成功:</strong> 检测结果已保存。';
+        document.getElementById('result-panel').insertBefore(alert, document.getElementById('result-panel').firstChild);
+
+        setTimeout(() => {
+          alert.style.opacity = '0';
+          setTimeout(() => {
+            document.getElementById('result-panel').removeChild(alert);
+          }, 500);
+        }, 3000);
+      });
+
+      document.getElementById('clear-log').addEventListener('click', function () {
+        document.getElementById('system-log').innerHTML = '';
+        addLog("日志已清除");
+      });
+
+      document.getElementById('clear-records').addEventListener('click', function () {
+        const currentRecords = JSON.parse(localStorage.getItem('purityCoreRecords')) || [];
+        const clearBtn = this; // 获取按钮元素
+
+        if (currentRecords.length === 0) {
+          // ▼▼▼▼▼▼ 新增无记录时的处理 ▼▼▼▼▼▼
+          // 按钮抖动效果
+          clearBtn.classList.add('btn-shake');
+          setTimeout(() => clearBtn.classList.remove('btn-shake'), 500);
+
+          // 红色错误日志
+          addLog("错误：没有可清除的检测记录！", true);
+          // ▲▲▲▲▲▲ 修改结束 ▲▲▲▲▲▲
+          return;
+        }
+
+        // 原有清除逻辑
+        console.log("清空检测记录...");
+        localStorage.removeItem('purityCoreRecords');
+        scanRecords = [];
+        renderRecordsList();
+        addLog("检测记录已清空");
+      });
+
+      document.getElementById('alert-ack').addEventListener('click', function () {
+        console.log("警报已确认，继续操作。");
+        document.querySelector('.alert-siren').style.display = 'none';
+        document.querySelector('.alert-message').style.display = 'none';
+
+        document.querySelectorAll('button').forEach(btn => {
+          btn.disabled = false;
+        });
+      });
+    }
+
+
+
+
+    document.addEventListener('DOMContentLoaded', function () {
+      // 1. 视觉效果控制
+      HackEffects.stopAll();
+      PermanentEffects.startAll();
+
+      // 2. 设置动态日期（使用您现有的formatDate函数）
+      const now = new Date();
+      document.querySelector('header').insertAdjacentHTML('beforeend',
+        `<p>版本 2.3.7 :: 最后更新 ${formatDate(now.toISOString())}</p>`
+      );
+      // 3. 系统日志初始化（新增）
+      initializeSystemLog();
+      // 4. 原有初始化流程（保持不变）
+      migrateOldRecords();
+      renderRecordsList();
+      setupTabs();
+      initEventListeners();
+
+      // 5. 终端效果动画（保持不变）
+      setInterval(function () {
+        if (Math.random() < 0.3) {
+          document.querySelector('.terminal-effect').style.display = 'block';
+          setTimeout(() => {
+            document.querySelector('.terminal-effect').style.display = 'none';
+          }, 300);
+        }
+      }, 3000);
+    });
+  </script>
+</body>
+
+</html>
