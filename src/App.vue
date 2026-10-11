@@ -432,6 +432,8 @@ const musicOpen = ref(false)
 const musicMounted = ref(false)
 const musicPlaying = ref(false)
 const musicReady = ref(false)
+/* 加载失败的兜底提示：为空 = 还没失败（正在加载或已就绪） */
+const musicError = ref('')
 const musicVolume = ref(0.1)
 /* 播放模式：顺序 → 随机 → 单曲循环（APlayer 的 order 管顺序/随机，loop 管列表循环/单曲） */
 const MUSIC_MODES = [
@@ -465,9 +467,19 @@ function toggleMusic() {
 }
 
 /* meting-js 是"先拉歌单、再 new APlayer"，实例不是同步就位的，
-   所以轮询等 el.aplayer 出现后再挂 play/pause 事件（约 15s 拿不到就放弃，例如 CDN 被墙）。 */
+   所以轮询等 el.aplayer 出现后再挂 play/pause 事件；这段时间面板只显示加载动效。 */
+const MUSIC_PROBE_TRIES = 50
+/* 兜底提示分两种：脚本根本没到 vs 脚本在但歌单没回来（接口被墙、歌单为空都会走到这里） */
+const MUSIC_SCRIPT_ERROR = '播放器脚本加载失败，请检查网络后重试。'
+const MUSIC_PLAYLIST_ERROR = '歌单加载失败，请稍后重试。'
+
 function bindMusicEvents() {
   if (musicBindTimer) return
+  /* 两个 CDN 脚本都是 defer，一定先于模块脚本执行：这里取不到就是真没加载成功，不必再空等 */
+  if (!window.APlayer || !(window.customElements && window.customElements.get('meting-js'))) {
+    musicError.value = MUSIC_SCRIPT_ERROR
+    return
+  }
   let tries = 0
   const probe = () => {
     const el = musicWrapEl.value && musicWrapEl.value.querySelector('meting-js')
@@ -475,6 +487,7 @@ function bindMusicEvents() {
     if (player) {
       musicBindTimer = 0
       musicReady.value = true
+      musicError.value = ''
       const sync = () => { musicPlaying.value = !player.audio.paused }
       const readList = () => {
         musicTracks.value = (player.list.audios || []).map(a => ({
@@ -509,13 +522,29 @@ function bindMusicEvents() {
       player.audio.addEventListener('durationchange', syncProgress)
       return
     }
-    if (++tries > 75) {
+    if (++tries > MUSIC_PROBE_TRIES) {
       musicBindTimer = 0
+      musicError.value = MUSIC_PLAYLIST_ERROR
       return
     }
     musicBindTimer = window.setTimeout(probe, 200)
   }
   probe()
+}
+
+/* 重试：重新挂一次 <meting-js>，等于重拉歌单、重建 APlayer */
+function retryMusic() {
+  if (!musicError.value) return
+  const el = musicWrapEl.value && musicWrapEl.value.querySelector('meting-js')
+  /* MetingJS 的 disconnectedCallback 会无条件执行 this.aplayer.destroy()，
+     实例没建起来时移除元素会抛未捕获错误，先补个空壳再换掉这个元素 */
+  if (el && !el.aplayer) el.aplayer = { destroy() {} }
+  musicError.value = ''
+  musicMounted.value = false
+  nextTick(() => {
+    musicMounted.value = true
+    nextTick(bindMusicEvents)
+  })
 }
 
 function musicPlayer() {
@@ -592,7 +621,12 @@ function playTrack(index) {
 function onGlobalClickForMusic(event) {
   if (!musicOpen.value) return
   const wrap = musicWrapEl.value
-  if (wrap && event.target instanceof Node && wrap.contains(event.target)) return
+  if (!wrap) return
+  /* 用事件派发时的路径判断：面板里的按钮可能在自己的 click 处理里被换掉
+     （例如点了重试，状态区随即重绘），这时 event.target 已经脱离 DOM，
+     按它判断会误当成"点了空白处"，把面板一起收走 */
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [event.target]
+  if (path.includes(wrap)) return
   musicOpen.value = false
 }
 
@@ -824,57 +858,67 @@ async function copyFooterInfo(text, okMsg = '已复制') {
                 <meting-js v-if="musicMounted" server="netease" type="playlist" id="6642044848"
                     :api="METING_API" autoplay="false" order="list" list-folded="true"
                     volume="0.1" storage-name="cyMusic-v3" theme="#00ffff"></meting-js>
-                <!-- ① 圆形小封面 · 歌名/作者 · 音量 -->
-                <div class="cy-m-top">
-                  <span class="cy-m-cover" :style="{ backgroundImage: musicCover ? `url(${musicCover})` : '' }"
-                      aria-hidden="true"></span>
-                  <span class="cy-m-meta">
-                    <b class="cy-m-title" :title="musicTrack.name">{{ musicTrack.name }}</b>
-                    <i class="cy-m-author" :title="musicTrack.artist">{{ musicTrack.artist }}</i>
-                  </span>
-                  <button type="button" class="cy-m-volicon" :aria-label="musicVolume > 0 ? '静音' : '恢复音量'"
-                      :title="musicVolume > 0 ? '静音' : '恢复音量'" @click="musicToggleMute">
-                    <i class="ph-bold" :class="volumeIcon"></i>
-                  </button>
-                  <input class="cy-m-vol" type="range" min="0" max="1" step="0.01" aria-label="音量"
-                      :value="musicVolume" :style="{ '--vol': Math.round(musicVolume * 100) + '%' }"
-                      @input="onVolumeInput">
+                <!-- 实例没就位：面板只给状态（加载动效 / 兜底提示），控制条等能播了再出现 -->
+                <div v-if="!musicReady" class="cy-m-state" role="status">
+                  <i class="ph-bold cy-m-state-icon"
+                      :class="musicError ? 'ph-warning-circle' : 'ph-spinner-gap animate-spin'"
+                      aria-hidden="true"></i>
+                  <p class="cy-m-state-text">{{ musicError || '正在加载歌单…' }}</p>
+                  <button v-if="musicError" type="button" class="cy-m-retry" @click="retryMusic">重试</button>
                 </div>
-                <!-- ② 进度条整行（可拖动） -->
-                <input class="cy-m-bar" type="range" min="0" max="1000" step="1" aria-label="播放进度"
-                    :value="musicProgress" :style="{ '--played': (musicProgress / 10) + '%' }"
-                    @input="onSeekInput" @change="onSeekInput">
-                <!-- ③ 顺序 · 上一首 · 播放/暂停 · 下一首 · 菜单 -->
-                <div class="cy-m-ctrl">
-                  <button type="button" class="cy-m-btn cy-m-mode" :disabled="!musicReady"
-                      :aria-label="musicModeMeta.label + '，点击切换播放模式'"
-                      :title="musicModeMeta.label" @click="musicCycleMode">
-                    <i class="ph-bold" :class="musicModeMeta.icon"></i>
-                  </button>
-                  <button type="button" class="cy-m-btn" :disabled="!musicReady" aria-label="上一首" title="上一首"
-                      @click="musicPrev"><i class="ph-fill ph-skip-back"></i></button>
-                  <button type="button" class="cy-m-btn cy-m-play" :disabled="!musicReady"
-                      :aria-label="musicPlaying ? '暂停' : '播放'" :title="musicPlaying ? '暂停' : '播放'"
-                      @click="musicToggle"><i class="ph-fill" :class="musicPlaying ? 'ph-pause' : 'ph-play'"></i></button>
-                  <button type="button" class="cy-m-btn" :disabled="!musicReady" aria-label="下一首" title="下一首"
-                      @click="musicNext"><i class="ph-fill ph-skip-forward"></i></button>
-                  <button type="button" class="cy-m-btn cy-m-menu" :aria-expanded="musicListOpen"
-                      :aria-label="musicListOpen ? '收起歌单' : '展开歌单'" :title="musicListOpen ? '收起歌单' : '展开歌单'"
-                      @click="musicListOpen = !musicListOpen"><i class="ph-bold ph-playlist"></i></button>
-                </div>
-                <!-- ④ 歌单：最多同时 5 首，其余滚动；展开/收起走高度动画 -->
-                <Transition name="cy-m-list">
-                  <div v-show="musicListOpen" class="cy-m-list-reveal">
-                    <ul class="cy-m-list">
-                      <li v-for="(track, index) in musicTracks" :key="index"
-                          :class="{ 'is-current': index === musicIndex }" @click="playTrack(index)">
-                        <span class="cy-m-idx">{{ String(index + 1).padStart(2, '0') }}</span>
-                        <span class="cy-m-name">{{ track.name }}</span>
-                        <span class="cy-m-by">{{ track.artist }}</span>
-                      </li>
-                    </ul>
+                <template v-else>
+                  <!-- ① 圆形小封面 · 歌名/作者 · 音量 -->
+                  <div class="cy-m-top">
+                    <span class="cy-m-cover" :style="{ backgroundImage: musicCover ? `url(${musicCover})` : '' }"
+                        aria-hidden="true"></span>
+                    <span class="cy-m-meta">
+                      <b class="cy-m-title" :title="musicTrack.name">{{ musicTrack.name }}</b>
+                      <i class="cy-m-author" :title="musicTrack.artist">{{ musicTrack.artist }}</i>
+                    </span>
+                    <button type="button" class="cy-m-volicon" :aria-label="musicVolume > 0 ? '静音' : '恢复音量'"
+                        :title="musicVolume > 0 ? '静音' : '恢复音量'" @click="musicToggleMute">
+                      <i class="ph-bold" :class="volumeIcon"></i>
+                    </button>
+                    <input class="cy-m-vol" type="range" min="0" max="1" step="0.01" aria-label="音量"
+                        :value="musicVolume" :style="{ '--vol': Math.round(musicVolume * 100) + '%' }"
+                        @input="onVolumeInput">
                   </div>
-                </Transition>
+                  <!-- ② 进度条整行（可拖动） -->
+                  <input class="cy-m-bar" type="range" min="0" max="1000" step="1" aria-label="播放进度"
+                      :value="musicProgress" :style="{ '--played': (musicProgress / 10) + '%' }"
+                      @input="onSeekInput" @change="onSeekInput">
+                  <!-- ③ 顺序 · 上一首 · 播放/暂停 · 下一首 · 菜单 -->
+                  <div class="cy-m-ctrl">
+                    <button type="button" class="cy-m-btn cy-m-mode"
+                        :aria-label="musicModeMeta.label + '，点击切换播放模式'"
+                        :title="musicModeMeta.label" @click="musicCycleMode">
+                      <i class="ph-bold" :class="musicModeMeta.icon"></i>
+                    </button>
+                    <button type="button" class="cy-m-btn" aria-label="上一首" title="上一首"
+                        @click="musicPrev"><i class="ph-fill ph-skip-back"></i></button>
+                    <button type="button" class="cy-m-btn cy-m-play"
+                        :aria-label="musicPlaying ? '暂停' : '播放'" :title="musicPlaying ? '暂停' : '播放'"
+                        @click="musicToggle"><i class="ph-fill" :class="musicPlaying ? 'ph-pause' : 'ph-play'"></i></button>
+                    <button type="button" class="cy-m-btn" aria-label="下一首" title="下一首"
+                        @click="musicNext"><i class="ph-fill ph-skip-forward"></i></button>
+                    <button type="button" class="cy-m-btn cy-m-menu" :aria-expanded="musicListOpen"
+                        :aria-label="musicListOpen ? '收起歌单' : '展开歌单'" :title="musicListOpen ? '收起歌单' : '展开歌单'"
+                        @click="musicListOpen = !musicListOpen"><i class="ph-bold ph-playlist"></i></button>
+                  </div>
+                  <!-- ④ 歌单：最多同时 5 首，其余滚动；展开/收起走高度动画 -->
+                  <Transition name="cy-m-list">
+                    <div v-show="musicListOpen" class="cy-m-list-reveal">
+                      <ul class="cy-m-list">
+                        <li v-for="(track, index) in musicTracks" :key="index"
+                            :class="{ 'is-current': index === musicIndex }" @click="playTrack(index)">
+                          <span class="cy-m-idx">{{ String(index + 1).padStart(2, '0') }}</span>
+                          <span class="cy-m-name">{{ track.name }}</span>
+                          <span class="cy-m-by">{{ track.artist }}</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </Transition>
+                </template>
               </div>
             </Transition>
           </div>
@@ -1172,6 +1216,42 @@ async function copyFooterInfo(text, okMsg = '已复制') {
 }
 /* APlayer 只当引擎：整棵默认 UI 不渲染（音频照常播放） */
 .cyan-music-pop :deep(.aplayer) { display: none }
+
+/* 实例还没就位：面板里唯一可见的状态行（转圈加载 / 失败提示 + 重试） */
+.cy-m-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 0 4px;
+}
+.cy-m-state-icon { flex: 0 0 auto; color: var(--cy-accent); font-size: 17px; }
+.cy-m-state-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  color: var(--art-ink-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.cy-m-retry {
+  flex: 0 0 auto;
+  height: 26px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--cy-accent) 45%, transparent);
+  border-radius: 100px;
+  color: var(--cy-accent);
+  font-size: 11px;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: background .25s ease, border-color .25s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .cy-m-retry:hover {
+    border-color: var(--cy-accent);
+    background: color-mix(in srgb, var(--cy-accent) 12%, transparent);
+  }
+}
 
 /* —— ① 小圆封面 · 歌名/作者 · 音量 —— */
 .cy-m-top { display: flex; align-items: center; gap: 10px; }

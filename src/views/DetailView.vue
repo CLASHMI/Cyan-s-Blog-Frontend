@@ -97,7 +97,7 @@ const detailTime = computed(() => {
 const hasContent = computed(() => !!(detail.value?.content && detail.value.content.trim()))
 
 const hideDesc = computed(() => !!detail.value && !hasContent.value)
-/* 手机端把时间挪到“随笔正文”那一行右侧：顶栏那份只在正文行不显示时才留着 */
+/* 手机端把时间与点击量挪到“随笔正文”那一行右侧：顶栏那两份只在正文行不显示时才留着 */
 const showDescTime = computed(() => hasContent.value)
 
 const detailRating = computed(() =>
@@ -472,7 +472,8 @@ watch(
                             :style="{ '--tag-h': tagHue(name) + 'deg' }">{{ name }}</span>
                         <span id="detailWordCount" class="art-chip"><i class="ph-bold ph-text-aa"></i>
                             {{ detailWordCount }} 字</span>
-                        <span id="detailViewCount" class="art-chip" title="点击量"><i class="ph-bold ph-eye"></i>
+                        <span id="detailViewCount" class="art-chip art-detail-view"
+                            :class="{ 'is-moved': showDescTime }" title="点击量"><i class="ph-bold ph-eye"></i>
                             {{ detailViewCount }}</span>
                     </div>
                 </div>
@@ -480,9 +481,10 @@ watch(
             <span id="detailTime" class="art-detail-time art-detail-time--bar"
                 :class="{ 'is-moved': showDescTime }">{{ detailTime }}</span>
             <button id="detailDownloadBtn" @click.stop="downloadMarkdown" class="art-detail-like"
-                title="下载 Markdown 文档"><i class="ph-bold ph-download-simple"></i> MD</button>
+                title="下载 Markdown 文档" aria-label="下载 Markdown 文档"><i
+                    class="ph-bold ph-download-simple"></i></button>
             <button id="detailLikeBtn" @click.stop="toggleLike" class="art-detail-like" title="点赞"
-                :class="[liked ? 'text-red-500' : '', likePending ? 'pointer-events-none opacity-60' : '']"><i
+                :class="[liked ? 'is-liked' : '', likePending ? 'pointer-events-none opacity-60' : '']"><i
                     class="ph-fill ph-heart"></i> {{ likeCount }}</button>
         </div>
 
@@ -530,8 +532,10 @@ watch(
                         </section>
                     </Transition>
                     <div id="detailDescBox" class="art-detail-desc" :class="hideDesc ? 'hidden' : ''">
-                        <p id="detailDescLabel" class="art-panel-sub">随笔正文<span
-                                v-if="showDescTime" class="art-detail-time art-detail-time--desc">{{ detailTime }}</span>
+                        <p id="detailDescLabel" class="art-panel-sub">随笔正文<span v-if="showDescTime"
+                                class="art-detail-desc-meta"><span class="art-detail-time">{{ detailTime }}</span><span
+                                    class="art-chip art-detail-view" title="点击量"><i class="ph-bold ph-eye"></i>
+                                    {{ detailViewCount }}</span></span>
                         </p>
                         <div id="detailContent" class="art-article-typography art-reading-text">
                             <MdPreview editor-id="blog-preview-id" :modelValue="detail.content || ''"
@@ -606,9 +610,8 @@ watch(
                         <div class="art-rater-wrap">
                             <span id="detailCommentCounter" class="art-counter">{{ commentLength }}/500</span>
                             <div id="starRater" class="art-rater">
-                                <i v-for="star in 5" :key="star" class="ph-fill ph-star art-star"
-                                    :class="star <= rating ? 'text-yellow-500' : 'text-zinc-700'"
-                                    @click="setRating(star)"></i>
+                                <i v-for="star in 5" :key="star" class="ph-fill ph-star art-star text-zinc-700"
+                                    :class="{ 'is-on': star <= rating }" @click="setRating(star)"></i>
                             </div>
                         </div>
                     </div>

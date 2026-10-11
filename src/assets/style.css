@@ -2775,24 +2775,24 @@ body.theme-light .art-tag {
     gap: 16px
 }
 
-/* 卡片评分：有分给金色星标，无分弱化成中性态，和旁边可点的点赞胶囊区分开 */
+/* 卡片评分：跟主题青色走，不用高饱和金色抢视线；无分仍弱化成中性态 */
 .art-card-rating {
     display: inline-flex;
     align-items: center;
     gap: 5px;
     padding: 4px 11px;
     border-radius: 100px;
-    border: 1px solid rgba(250, 204, 21, .24);
-    background: rgba(250, 204, 21, .07);
+    border: 1px solid color-mix(in srgb, var(--art-accent) 20%, transparent);
+    background: color-mix(in srgb, var(--art-accent) 5%, transparent);
     font-family: var(--art-mono);
     font-size: 11px;
     letter-spacing: .06em;
-    color: rgba(250, 204, 21, .95)
+    color: color-mix(in srgb, var(--art-accent) 72%, var(--art-ink-2))
 }
 
 .art-card-rating i {
     font-size: 11px;
-    color: rgba(250, 204, 21, .9)
+    color: var(--art-accent)
 }
 
 .art-card-rating.is-empty {
@@ -3422,9 +3422,18 @@ body.theme-light .art-card-rating.is-empty {
     cursor: pointer;
     transition: border-color .4s ease, background-color .4s ease, color .4s ease
 }
+
+/* 点赞：和杂物柜同一套（青色文字 + 淡青底），点过赞不再变成红色 */
+.art-blog-foot .art-card-stats > span.is-liked {
+    color: var(--art-accent);
+    border-color: color-mix(in srgb, var(--art-accent) 30%, transparent);
+    background: color-mix(in srgb, var(--art-accent) 7%, transparent)
+}
+
 @media (hover: hover) and (pointer: fine){.art-blog-foot .art-card-stats > span:hover{
-    border-color: rgba(239, 68, 68, .4);
-    background: rgba(239, 68, 68, .08)
+    color: var(--art-accent);
+    border-color: color-mix(in srgb, var(--art-accent) 30%, transparent);
+    background: color-mix(in srgb, var(--art-accent) 7%, transparent)
 }}
 
 .art-blog-foot-right {
@@ -3686,7 +3695,7 @@ body.theme-light .art-card-rating.is-empty {
     display: flex;
     gap: 2px;
     font-size: 10px;
-    color: #facc15
+    color: var(--art-accent)
 }
 
 .art-comment-floor {
@@ -4380,8 +4389,8 @@ body.art-col-resizing * {
     flex: 0 0 auto
 }
 
-/* 随笔正文行右侧的那份时间：只在手机端顶栏放不下时启用 */
-.art-detail-time--desc {
+/* 随笔正文行右侧的时间与点击量：默认收着，只在手机端顶栏放不下时启用 */
+.art-detail-desc-meta {
     display: none
 }
 
@@ -4393,12 +4402,16 @@ body.art-col-resizing * {
         gap: 12px
     }
 
-    .art-detail-time.is-moved {
+    /* 顶栏那份时间与点击量收起，交给正文行右侧那一份 */
+    .art-detail-time.is-moved,
+    .art-detail-view.is-moved {
         display: none
     }
 
-    .art-detail-time--desc {
-        display: inline
+    .art-detail-desc-meta {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px
     }}
 
 .art-detail-body {
@@ -4610,7 +4623,7 @@ body.art-col-resizing * {
 
 .art-detail-score i {
     font-size: 11px;
-    color: rgba(250, 204, 21, .85)
+    color: var(--art-accent)
 }
 
 .art-detail-like {
@@ -4640,9 +4653,11 @@ body.art-col-resizing * {
     box-shadow: 0 0 12px rgba(0, 255, 255, .25)
 }}
 
-.art-detail-like.text-red-500 {
-    color: #ef4444;
-    border-color: rgba(239, 68, 68, .45)
+/* 已点赞：和杂物柜同一套（青色文字 + 淡青底），不再用红色心 */
+.art-detail-like.is-liked {
+    color: var(--art-accent);
+    border-color: color-mix(in srgb, var(--art-accent) 45%, transparent);
+    background: color-mix(in srgb, var(--art-accent) 8%, transparent)
 }
 
 .art-detail-comments {
@@ -4694,6 +4709,12 @@ body.art-col-resizing * {
     cursor: pointer;
     transition: transform .45s var(--art-ease)
 }
+
+/* 选星：选中给主题青（原来那支黄色太跳），未选仍是中性灰 */
+.art-star.is-on {
+    color: var(--art-accent)
+}
+
 @media (hover: hover) and (pointer: fine){.art-star:hover{
     transform: scale(1.18)
 }}
@@ -5634,6 +5655,13 @@ body.theme-light .art-blog-foot .art-card-stats > span {
     background: rgba(14, 127, 156, .06);
     border-color: rgba(14, 127, 156, .18)
 }}
+
+/* 亮底上点过赞同样是主题青，盖掉上面那条浅灰底 */
+body.theme-light .art-blog-foot .art-card-stats > span.is-liked {
+    color: var(--art-accent);
+    border-color: color-mix(in srgb, var(--art-accent) 32%, transparent);
+    background: color-mix(in srgb, var(--art-accent) 9%, transparent)
+}
 @media (hover: hover) and (pointer: fine){/* 侧栏 / 底栏导航 hover：亮底上给一层淡青底，文字同步加深 */
 body.theme-light .art-rail-link:not(.hidden):hover, body.theme-light .art-mobilebar-item:hover{
     background: rgba(14, 127, 156, .09);
@@ -5882,15 +5910,12 @@ body.theme-light .art-detail-like {
 @media (hover: hover) and (pointer: fine){body.theme-light .art-detail-like:hover{
     box-shadow: none
 }}
-/* 已点赞时不参与亮色的通用悬停换色，否则鼠标停在按钮上红心会被盖成深灰 */
-body.theme-light .art-detail-like.text-red-500{
-    color: #ef4444 !important;
-    border-color: rgba(239, 68, 68, .45)
+/* 已点赞时不参与亮色的通用悬停换色，否则鼠标停在按钮上心形会被盖成深灰 */
+body.theme-light .art-detail-like.is-liked{
+    color: var(--art-accent) !important;
+    border-color: color-mix(in srgb, var(--art-accent) 45%, transparent);
+    background: color-mix(in srgb, var(--art-accent) 8%, transparent)
 }
-@media (hover: hover) and (pointer: fine){body.theme-light .art-detail-like.text-red-500:hover{
-    color: #ef4444 !important;
-    border-color: rgba(239, 68, 68, .45)
-}}
 
 /* 详情页底、媒体与头像兜底色 */
 body.theme-light .art-detail-page {

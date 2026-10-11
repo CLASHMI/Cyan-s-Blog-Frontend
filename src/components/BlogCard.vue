@@ -297,9 +297,9 @@ const abstractMediaStyle = computed(() => {
             <p v-if="cleanExcerpt" class="art-blog-excerpt">{{ cleanExcerpt }}</p>
             <footer class="art-blog-foot">
                 <div class="art-card-stats">
-                    <span class="flex items-center gap-1.5 hover:text-white transition-colors"
-                        :class="[liked ? 'text-red-500' : '', likePending ? 'pointer-events-none opacity-60' : '']"
-                        @click.stop="toggleLike"><i class="ph-fill ph-heart" :class="liked ? 'text-red-500' : ''"></i>
+                    <span class="flex items-center gap-1.5 transition-colors"
+                        :class="[liked ? 'is-liked' : '', likePending ? 'pointer-events-none opacity-60' : '']"
+                        @click.stop="toggleLike"><i class="ph-fill ph-heart"></i>
                         {{ likeCount }}</span>
                 </div>
                 <span class="art-card-rating" :class="{ 'is-empty': !hasRating }"
