@@ -485,3 +485,239 @@ onUnmounted(() => {
       </div>
   </div>
 </template>
+
+<style scoped>
+/* Muse 助手 */
+.art-muse-bubble {
+    position: absolute;
+    /* 挂到看板娘右侧 */
+    left: 100%;
+    /* 相对容器再抬高 10px */
+    bottom: 20px;
+    width: max-content;
+    /* 保证不越过屏幕右边缘 */
+    max-width: min(188px, calc(100vw - var(--muse-anchor-left, 120px) - 16px));
+    padding: 9px 11px;
+    border-radius: 16px 16px 16px 6px;
+    border: 1px solid var(--art-line-2);
+    background: rgba(4, 8, 10, .8);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .8), 0 0 20px rgba(0, 255, 255, .1);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+    transform-origin: 0 100%;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity .4s ease, transform .5s var(--art-ease), visibility 0s linear
+}
+
+/* 收起：先淡出再撤掉可见性，避免整块瞬间消失 */
+.art-muse-bubble.is-hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(8px) scale(.94);
+    transition: opacity .32s ease, transform .38s ease, visibility 0s linear .38s
+}
+
+@media (min-width:768px) {
+    .art-muse-bubble {
+        max-width: 210px
+    }}
+
+.art-muse-bubble-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px
+}
+
+.art-muse-bubble-title {
+    display: flex;
+    align-items: center;
+    gap: 8px
+}
+
+.art-muse-bubble-name {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: none;
+    color: var(--art-accent)
+}
+
+.art-muse-bubble-close {
+    font-size: 11px;
+    color: var(--art-ink-4);
+    cursor: pointer;
+    transition: color .35s ease
+}
+@media (hover: hover) and (pointer: fine){.art-muse-bubble-close:hover{
+    color: #fff
+}}
+
+.art-muse-content {
+    font-size: 10px;
+    line-height: 1.65;
+    color: #c8c8ce;
+    min-height: 26px
+}
+
+/* 看板助手容器：PC 端是模型（气泡位置由 JS 计算），手机端是静态头像 */
+#museButler {
+    position: fixed;
+    /* 手机端：头像贴左下角，气泡挂在右侧 */
+    --muse-anchor-left: 16px;
+    --muse-anchor-bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+    left: var(--muse-anchor-left);
+    bottom: var(--muse-anchor-bottom);
+    z-index: 90;
+    /* 透明容器不能拦鼠标 */
+    pointer-events: none
+}
+
+/* PC：气泡悬停在看板娘头部右侧偏上 */
+@media (min-width:768px) {
+    #museButler {
+        --muse-anchor-left: 210px;
+        --muse-anchor-bottom: 200px
+    }
+}
+
+/* 静态头像：只在手机端出现 */
+.art-muse-avatar {
+    display: none;
+    position: relative;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 auto;
+    /* 背景圆环四周的内缩量：容器 48px，环直径 = 48 - 2×2.4 = 43.2px
+       偏头抵消缩放时的轴心也由它换算，所以改这一个值即可整体缩放圆环 */
+    --muse-ring-inset: 2.4px;
+    cursor: pointer;
+    /* 长按拖拽时不要触发页面滚动/下拉刷新 */
+    touch-action: none;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    /* 偏头以脖子为轴心 */
+    transform-origin: 50% 76%;
+    /* 圆环单独成层压在图片下方，负 z 索引才不会沉到页面背景后面 */
+    isolation: isolate;
+    transition: transform .65s ease-out
+}
+
+/* 背景圆环：比角色轮廓大一圈，脑袋落在环心 */
+.art-muse-avatar::before {
+    content: "";
+    position: absolute;
+    inset: var(--muse-ring-inset);
+    z-index: -1;
+    border-radius: 50%;
+    border: 1px solid var(--art-line-2);
+    background: rgba(255, 255, 255, .03);
+    transition: transform .65s ease-out, border-color .6s ease
+}
+
+.art-muse-avatar img {
+    /* 78%：角色图片仍按容器居中，再整体上移 2px，让脑袋（不含丸子）落在环心 */
+    width: 78%;
+    height: 78%;
+    object-fit: contain;
+    position: relative;
+    top: -2px;
+    /* 光环挂在角色轮廓上：drop-shadow 跟着 alpha 走，圆环自己不发光 */
+    filter: drop-shadow(0 0 5px rgba(0, 255, 255, .3));
+    transition: filter .6s ease;
+    /* 不裁图片：这张 PNG 四角本来就是透明的，圆形裁切会切掉头顶两个丸子 */
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    user-select: none
+}
+
+/* 默认头像本身是满幅圆，按圆环内径居中放大即可正好嵌入 */
+.art-muse-avatar img.is-fallback-avatar {
+    width: 84%;
+    height: 84%;
+    top: 0
+}
+
+/* 在线点跟住圆环右下缘 */
+.art-muse-dot {
+    right: 10%;
+    bottom: 10%
+}
+
+/* 气泡弹出来时逆时针偏头并放大，气泡收起后回正 */
+.art-muse-avatar.is-tilted {
+    transform: rotate(-12deg) scale(1.05)
+}
+
+/* 偏头时亮起来的是角色轮廓，不是圆环 */
+.art-muse-avatar.is-tilted img {
+    filter: drop-shadow(0 0 4px rgba(0, 255, 255, .75)) drop-shadow(0 0 11px rgba(0, 255, 255, .4))
+}
+
+/* 偏头时圆环跟着一起转，但只让角色变大：用 1/1.05 抵消父级的 1.05 缩放
+   轴心是脖子（容器 50% 76% = 24px / 36.48px），换算到圆环自身坐标系要减去内缩量 */
+.art-muse-avatar.is-tilted::before {
+    transform-origin: calc(24px - var(--muse-ring-inset)) calc(36.48px - var(--muse-ring-inset));
+    transform: scale(.952381);
+    border-color: rgba(0, 255, 255, .5)
+}
+
+@media (max-width:1023px) {
+    .art-muse-avatar {
+        display: flex
+    }
+
+    /* 手机端不用 Live2D 模型，直接隐藏空舞台 */
+    :global(#oml2d-stage),
+    :global(#oml2d-canvas) {
+        display: none !important
+    }}
+
+/* 桌面端模型异常时兜底成静态头像 */
+#museButler.is-fallback {
+    --muse-anchor-left: 16px;
+    --muse-anchor-bottom: calc(112px + env(safe-area-inset-bottom, 0px))
+}
+
+#museButler.is-fallback .art-muse-avatar {
+    display: flex
+}
+
+/* 画布被紧裁到小腿，贴底摆放 */
+:global(#oml2d-stage) {
+    /* 只做水平左移：内容区左缘 = max(4vw,(100vw-1360px)/2)；
+       角色实际右缘按 MUSE_HIT.x1(0.74)×275≈204px 计，再留 10px 间隙，恰好不压住卡片 */
+    left: min(10px, calc(max(4vw, (100vw - 1360px) / 2) - 214px)) !important;
+    bottom: 0 !important;
+    /* 关掉入场滑入动画，避免模型重载时新旧帧叠加 */
+    animation: none !important;
+    transform: none !important;
+    /* 站在最上层，左侧导航不遮挡模型 */
+    z-index: 9997 !important
+}
+
+/* 模型层不吃鼠标事件；oml2d 的追踪挂在 document 上，不受影响 */
+:global(#oml2d-stage),
+:global(#oml2d-canvas) {
+    pointer-events: none !important
+}
+
+/* 关掉 oml2d 自带的蓝色提示牌 */
+:global(#oml2d-tips),
+:global(#oml2d-tips-content) {
+    display: none !important
+}
+
+#museBubble {
+    pointer-events: auto
+}
+
+/* 收起状态下不拦鼠标 */
+#museBubble.is-hidden {
+    pointer-events: none
+}
+</style>
