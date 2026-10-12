@@ -116,9 +116,20 @@ const showEmptyStage = computed(() => !!detail.value && !hasContent.value)
 const catalogList = ref([])
 const hasCatalog = computed(() => catalogList.value.length > 0)
 
+/* MdPreview 只在挂载时把目录交给 MdCatalog：换文章后老 MdCatalog 收不到后续广播（实测同 id 新挂一个就能拿到新目录，
+   老实例连别人触发的广播都不响应），目录会定格在上一篇。等新目录回传时把 MdCatalog 重挂一次，让它重新取当前目录 */
+const catalogKey = ref(0)
+let lastCatalogRef = null
+
 /* MdPreview 解析完正文会把标题清单回传，用它判断这篇到底有没有目录 */
 function onGetCatalog(list) {
-  catalogList.value = Array.isArray(list) ? list : []
+  const next = Array.isArray(list) ? list : []
+  catalogList.value = next
+  /* 同一次解析会回传两次同一个数组，按引用去重，避免无谓重挂 */
+  if (next !== lastCatalogRef) {
+    lastCatalogRef = next
+    catalogKey.value += 1
+  }
 }
 
 /* ---------------- 目录列宽拖拽（右侧栏宽度固定，不参与拖拽） ---------------- */
@@ -551,7 +562,8 @@ watch(
             <!-- 目录列（仅 PC）：没提取到目录时不占列，左侧完全留白 -->
             <section v-if="hasCatalog" class="art-detail-catalog">
                 <div class="art-catalog-inner">
-                    <MdCatalog editor-id="blog-preview-id" :scroll-element="scrollElement" :theme="mdTheme" />
+                    <MdCatalog :key="catalogKey" editor-id="blog-preview-id" :scroll-element="scrollElement"
+                        :theme="mdTheme" />
                 </div>
             </section>
             <button v-if="hasCatalog" type="button" class="art-detail-grip" :class="{ 'is-dragging': resizing }"
