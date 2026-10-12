@@ -310,7 +310,8 @@ function changeCommentPage(delta) {
 }
 
 function setRating(value) {
-  rating.value = value
+  /* 再点同一颗星星即取消评分 */
+  rating.value = rating.value === value ? 0 : value
 }
 
 async function refreshDetailRating() {
