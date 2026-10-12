@@ -117,17 +117,22 @@ const catalogList = ref([])
 const hasCatalog = computed(() => catalogList.value.length > 0)
 
 /* MdPreview 只在挂载时把目录交给 MdCatalog：换文章后老 MdCatalog 收不到后续广播（实测同 id 新挂一个就能拿到新目录，
-   老实例连别人触发的广播都不响应），目录会定格在上一篇。等新目录回传时把 MdCatalog 重挂一次，让它重新取当前目录 */
+   老实例连别人触发的广播都不响应），目录会定格在上一篇。等目录真的变了就把 MdCatalog 重挂一次，让它重新取当前目录 */
 const catalogKey = ref(0)
-let lastCatalogRef = null
+let lastCatalogSign = null
+
+/* 目录指纹：换成内容判断，不按数组引用——切主题等重渲染也会回传一份新数组，按引用去重会白重挂一次 */
+function catalogSign(list) {
+  return list.map((item) => `${item.level}|${item.text}|${item.line}`).join('\n')
+}
 
 /* MdPreview 解析完正文会把标题清单回传，用它判断这篇到底有没有目录 */
 function onGetCatalog(list) {
   const next = Array.isArray(list) ? list : []
   catalogList.value = next
-  /* 同一次解析会回传两次同一个数组，按引用去重，避免无谓重挂 */
-  if (next !== lastCatalogRef) {
-    lastCatalogRef = next
+  const sign = catalogSign(next)
+  if (sign !== lastCatalogSign) {
+    lastCatalogSign = sign
     catalogKey.value += 1
   }
 }
@@ -279,6 +284,8 @@ async function loadDetail(id) {
     if (seq !== detailSeq) return
     detail.value = null
     detailError.value = '这条内容不存在或已被删除。'
+    /* 正文都没了，目录不能再挂着上一篇的标题；这里不会再有新目录回传，放心让它收起 */
+    catalogList.value = []
   } finally {
     if (seq === detailSeq) loadingDetail.value = false
   }
