@@ -112,14 +112,56 @@ const detailViewCount = computed(() => Number(detail.value?.viewCount) || 0)
 /* 既没有正文也没有配图时，左栏给一个空状态 */
 const showEmptyStage = computed(() => !!detail.value && !hasContent.value)
 
-/* ---------------- 目录抽屉：没提取到目录就一个元素都不渲染 ---------------- */
+/* ---------------- 左侧目录：没提取到目录就不占列，左侧完全留白 ---------------- */
 const catalogList = ref([])
-const catalogOpen = ref(false)
 const hasCatalog = computed(() => catalogList.value.length > 0)
 
 /* MdPreview 解析完正文会把标题清单回传，用它判断这篇到底有没有目录 */
 function onGetCatalog(list) {
   catalogList.value = Array.isArray(list) ? list : []
+}
+
+/* ---------------- 目录列宽拖拽（右侧栏宽度固定，不参与拖拽） ---------------- */
+const CATALOG_MAX_W = 340
+/* 正文保底宽度：拖到极限时目录被压到 0，也不会把正文挤没 */
+const CONTENT_MIN_W = 360
+/* 目录与正文之间的把手占一条 8px 列，与 .art-detail-grip 的 width 一致 */
+const GRIP_W = 8
+/* 右侧栏固定宽度，与 .art-detail-page .art-detail-body 的 320px 保持一致 */
+const SIDE_FIXED_W = 320
+const catalogWidth = ref(220)
+const resizing = ref(false)
+/* 当前拖拽的收尾函数，组件卸载时兜底清理 */
+let endResize = null
+
+function startCatalogResize(event) {
+  const bodyEl = event.currentTarget.parentElement
+  if (!bodyEl) return
+  const gripEl = event.currentTarget
+  const totalWidth = bodyEl.getBoundingClientRect().width
+  const startX = event.clientX
+  const startWidth = catalogWidth.value
+  resizing.value = true
+  gripEl.classList.add('is-dragging')
+  document.body.classList.add('art-col-resizing')
+
+  const onMove = (e) => {
+    const delta = e.clientX - startX
+    const limit = Math.max(0, Math.min(CATALOG_MAX_W, totalWidth - SIDE_FIXED_W - CONTENT_MIN_W - GRIP_W))
+    catalogWidth.value = Math.min(Math.max(startWidth + delta, 0), limit)
+  }
+  endResize = () => {
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', endResize)
+    window.removeEventListener('pointercancel', endResize)
+    gripEl.classList.remove('is-dragging')
+    document.body.classList.remove('art-col-resizing')
+    resizing.value = false
+    endResize = null
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', endResize)
+  window.addEventListener('pointercancel', endResize)
 }
 
 /* ---------------- 右侧栏数据：精选（后端随机 5 篇）与近期最热 ---------------- */
@@ -421,6 +463,7 @@ watch(
 )
 
 onUnmounted(() => {
+  if (endResize) endResize()
   summarySeq += 1
   stopSummaryTyping()
   stopSummaryWait()
@@ -432,7 +475,6 @@ watch(
   (id) => {
     detail.value = null
     detailError.value = ''
-    catalogOpen.value = false
     catalogList.value = []
     /* 从侧栏列表换一篇是同一个组件实例，正文的滚动位置要手动归零 */
     if (detailBodyEl.value) detailBodyEl.value.scrollTop = 0
@@ -476,24 +518,17 @@ watch(
                     class="ph-fill ph-heart"></i> {{ likeCount }}</button>
         </div>
 
-        <div ref="detailBodyEl" class="art-detail-body" @scroll.passive="onDetailScroll">
-            <!-- 目录抽屉（仅 PC）：没提取到目录时整块不渲染，左侧不留任何元素 -->
-            <div v-if="hasCatalog" class="art-detail-catalog" :class="{ 'is-open': catalogOpen }">
-                <button type="button" class="art-catalog-trigger" @click="catalogOpen = true" title="打开目录"
-                    aria-label="打开目录"><i class="ph-bold ph-list-dashes"></i><span>目录</span></button>
-                <div class="art-catalog-drawer">
-                    <div class="art-catalog-drawer-head">
-                        <span class="art-detail-side-title">目录</span>
-                        <button type="button" class="art-icon-btn art-icon-btn-sm" @click="catalogOpen = false"
-                            title="关闭目录" aria-label="关闭目录"><i class="ph-bold ph-x"></i></button>
-                    </div>
-                    <div class="art-catalog-drawer-body" @click="catalogOpen = false">
-                        <MdCatalog editor-id="blog-preview-id" :scroll-element="scrollElement"
-                            :theme="mdTheme" />
-                    </div>
+        <div ref="detailBodyEl" class="art-detail-body"
+            :class="{ 'art-detail-body--with-catalog': hasCatalog }"
+            :style="{ '--art-detail-catalog-w': catalogWidth + 'px' }" @scroll.passive="onDetailScroll">
+            <!-- 目录列（仅 PC）：没提取到目录时不占列，左侧完全留白 -->
+            <section v-if="hasCatalog" class="art-detail-catalog">
+                <div class="art-catalog-inner">
+                    <MdCatalog editor-id="blog-preview-id" :scroll-element="scrollElement" :theme="mdTheme" />
                 </div>
-                <div class="art-catalog-mask" @click="catalogOpen = false"></div>
-            </div>
+            </section>
+            <button v-if="hasCatalog" type="button" class="art-detail-grip" :class="{ 'is-dragging': resizing }"
+                @pointerdown="startCatalogResize" title="拖动调整目录宽度" aria-label="拖动调整目录宽度"></button>
 
             <div id="detail-scroll-container" class="art-detail-stage" @scroll.passive="onDetailScroll">
                 <!-- 详情未回来前用等高占位撑住画板，避免结构先塌后撑 -->
@@ -1052,164 +1087,79 @@ body.theme-light .art-side-item {
     background: rgba(14, 127, 156, .06)
 }}
 
-/* ---- 目录抽屉 ---- */
-/* 没提取到目录时这个元素根本不渲染；有目录也只在 PC 出现，且默认关闭 */
-.art-detail-catalog {
-    display: none
-}
-
-body.theme-light .art-catalog-trigger {
-    color: var(--art-ink-2);
-    background: rgba(255, 255, 255, .86)
-}
-
-body.theme-light .art-catalog-drawer {
-    background: rgba(247, 248, 250, .95);
-    box-shadow: 0 0 44px rgba(20, 50, 56, .14)
-}
-
-body.theme-light .art-catalog-mask {
-    background: rgba(20, 50, 56, .18)
-}
-
+/* ---- 左侧目录列：PC 端可拖拽调宽，无目录时不占列 ---- */
 @media (min-width:1024px) {
-    /* 正文列成为抽屉的定位参照，并裁掉抽屉收起时探到左外侧的那一小截 */
+    /* 目录 + 把手 + 正文 + 固定宽度的右侧栏；目录宽度由 JS 写入 CSS 变量 */
     .art-detail-page .art-detail-body {
-        position: relative;
-        overflow: hidden;
-        /* 目录已改成浮层、不再占列：正文 + 右侧栏两列 */
         grid-template-columns: minmax(0, 1fr) 320px
     }
 
-    /* 两个列表可能比一屏长，侧栏自己滚（全局那条是 overflow:hidden，这里只覆盖 y 轴） */
+    .art-detail-page .art-detail-body--with-catalog {
+        grid-template-columns: var(--art-detail-catalog-w, 220px) 8px minmax(0, 1fr) 320px;
+        column-gap: 0
+    }
+
+    /* 拖到 0 时真的收干净：内边距与滚动条都放在内层 */
+    .art-detail-page .art-detail-catalog {
+        width: var(--art-detail-catalog-w, 220px);
+        min-width: 0;
+        padding: 0;
+        overflow: hidden
+    }
+
+    .art-catalog-inner {
+        width: 100%;
+        /* 拖窄时保持原宽被裁掉，目录项不折行 */
+        min-width: 220px;
+        height: 100%;
+        padding: 2px 10px 16px 4px;
+        overflow-y: auto;
+        overscroll-behavior: contain
+    }
+
+    /* 拖拽把手：横跨接缝的窄条，悬停 / 拖拽时亮起 */
+    .art-detail-grip {
+        position: relative;
+        width: 8px;
+        height: 100%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        cursor: col-resize;
+        touch-action: none;
+        z-index: 4
+    }
+
+    .art-detail-grip::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 2px;
+        height: 44px;
+        border-radius: 2px;
+        background: var(--art-line-2);
+        transform: translate(-50%, -50%);
+        transition: height .3s var(--art-ease), background-color .3s ease
+    }
+
+    .art-detail-grip:hover::before,
+    .art-detail-grip.is-dragging::before {
+        height: 76px;
+        background: var(--art-accent)
+    }
+
+    /* 两个列表可能比一屏长，侧栏自己滚 */
     .art-detail-page .art-detail-side {
         overflow-y: auto
     }
+}
 
-    .art-detail-catalog {
-        display: block;
-        /* 只作定位参照，本身不接点击 */
-        position: absolute;
-        inset: 0;
-        z-index: 30;
-        pointer-events: none
-    }
-
-    /* 悬浮在正文左侧的“打开目录”触发钮 */
-    .art-catalog-trigger {
-        pointer-events: auto;
-        position: absolute;
-        left: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-        width: 34px;
-        padding: 14px 0 12px;
-        border: 1px solid var(--art-line-2);
-        border-left: 0;
-        border-radius: 0 12px 12px 0;
-        background: rgba(4, 8, 10, .72);
-        -webkit-backdrop-filter: blur(18px) saturate(150%);
-        backdrop-filter: blur(18px) saturate(150%);
-        color: var(--art-ink-2);
-        font-size: 11px;
-        letter-spacing: .3em;
-        cursor: pointer;
-        transition: color .3s ease, border-color .3s ease, box-shadow .3s ease, opacity .3s ease
-    }
-
-    .art-catalog-trigger i {
-        font-size: 14px
-    }
-
-    .art-catalog-trigger span {
-        writing-mode: vertical-rl
-    }
-
-    /* 抽屉展开后触发钮让位 */
-    .art-detail-catalog.is-open .art-catalog-trigger {
-        opacity: 0;
-        pointer-events: none
-    }
-
-    /* 抽屉本体：从正文左边缘侧滑出来 */
-    .art-catalog-drawer {
-        pointer-events: auto;
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        z-index: 3;
-        display: flex;
-        flex-direction: column;
-        width: 288px;
-        background: rgba(4, 8, 10, .88);
-        -webkit-backdrop-filter: blur(24px) saturate(150%);
-        backdrop-filter: blur(24px) saturate(150%);
-        border-right: 1px solid var(--art-line);
-        box-shadow: 0 0 44px rgba(0, 0, 0, .5);
-        visibility: hidden;
-        transform: translateX(-100%);
-        transition: transform .34s var(--art-ease), visibility 0s linear .34s
-    }
-
-    .art-detail-catalog.is-open .art-catalog-drawer {
-        visibility: visible;
-        transform: translateX(0);
-        transition: transform .34s var(--art-ease), visibility 0s
-    }
-
-    .art-catalog-drawer-head {
-        flex: 0 0 auto;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        padding: 18px clamp(16px, 3vw, 28px);
-        border-bottom: 1px solid var(--art-line)
-    }
-
-    .art-catalog-drawer-body {
-        flex: 1 1 auto;
-        min-height: 0;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-        padding: 14px clamp(16px, 3vw, 28px) 20px
-    }
-
-    /* 展开时压暗正文，点一下即收起 */
-    .art-catalog-mask {
-        position: absolute;
-        inset: 0;
-        z-index: 2;
-        background: rgba(0, 0, 0, .42);
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-        transition: opacity .3s ease, visibility 0s linear .3s
-    }
-
-    .art-detail-catalog.is-open .art-catalog-mask {
-        opacity: 1;
-        visibility: visible;
-        pointer-events: auto;
-        transition: opacity .28s ease, visibility 0s
-    }}
-
-@media (hover: hover) and (pointer: fine){.art-catalog-trigger:hover{
-    color: var(--art-accent);
-    border-color: var(--art-accent);
-    box-shadow: 0 0 18px rgba(0, 255, 255, .18)
-}}
-
-@media (prefers-reduced-motion: reduce) {
-    .art-catalog-trigger,
-    .art-catalog-drawer,
-    .art-catalog-mask {
-        transition: none
+/* 手机端空间紧张：目录只在 PC 出现 */
+@media (max-width:1023px) {
+    .art-detail-catalog,
+    .art-detail-grip {
+        display: none
     }
 }
 
