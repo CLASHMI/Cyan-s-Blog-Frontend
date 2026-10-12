@@ -802,6 +802,52 @@ watch(
     justify-content: flex-end
 }
 
+/* 星级：选中时新点亮的那几颗依次弹一下，颜色同时淡入过去 */
+.art-star {
+    transition: color .28s ease, transform .45s var(--art-ease)
+}
+
+.art-star.is-on {
+    animation: art-star-pop .3s var(--art-ease)
+}
+
+/* 从第 1 颗往后依次点亮，避免五颗同时弹 */
+.art-star.is-on:nth-child(2) {
+    animation-delay: 32ms
+}
+
+.art-star.is-on:nth-child(3) {
+    animation-delay: 64ms
+}
+
+.art-star.is-on:nth-child(4) {
+    animation-delay: 96ms
+}
+
+.art-star.is-on:nth-child(5) {
+    animation-delay: 128ms
+}
+
+/* 按下（包括再点一次取消）时先缩一下，保证任何一次点击都有反馈 */
+.art-star:active {
+    transform: scale(.92);
+    transition-duration: .12s
+}
+
+@keyframes art-star-pop {
+    0% {
+        transform: scale(1)
+    }
+
+    45% {
+        transform: scale(1.16)
+    }
+
+    100% {
+        transform: scale(1)
+    }
+}
+
 /* 发送按钮：提交态图标交叉淡入淡出，圆形尺寸保持不变 */
 .art-send {
     display: inline-grid;
@@ -1043,6 +1089,10 @@ watch(
     .art-send-icon,
     .art-compose-hint {
         transition: none
+    }
+
+    .art-star.is-on {
+        animation: none
     }
 }
 
