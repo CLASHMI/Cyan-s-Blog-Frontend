@@ -328,4 +328,107 @@ async function copyFooterInfo(text, okMsg = '已复制') {
         bottom: calc(108px + env(safe-area-inset-bottom, 0px))
     }
 }
+/* 页脚（阶段三-4：从 style.css 原样搬来，仅加 scoped 归属）*/
+.art-footer {
+    position: relative;
+    z-index: 1;
+    border-top: 1px solid var(--art-line);
+    margin-top: clamp(40px, 6vw, 90px)
+}
+
+.art-footer-inner {
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: clamp(18px, 2.6vw, 26px) clamp(20px, 4vw, 60px);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    font-size: 11px;
+    letter-spacing: .06em;
+    color: var(--art-ink-3)
+}
+
+.art-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px
+}
+
+.art-footer a,
+.art-footer button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--art-ink-3);
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+    transition: color .35s ease
+}
+@media (hover: hover) and (pointer: fine){.art-footer a:hover, .art-footer button:hover{
+    color: #fff
+}}
+
+.art-footer-sep {
+    color: var(--art-ink-4)
+}
+
+.art-footer-copy {
+    font-size: 10px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--art-ink-4)
+}
+
+.art-footer-aside {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px;
+    margin-left: auto
+}
+
+.art-footer-icon {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    opacity: .75
+}
+
+@media (max-width:1023px) {
+    .art-footer-inner {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        text-align: center
+    }
+
+    /* 联系入口横向排列并允许换行，避免每个链接独占一行把页脚拉得很长 */
+    .art-footer-links {
+        flex-direction: row;
+        justify-content: center;
+        gap: 10px 16px
+    }
+
+    .art-footer-sep {
+        display: none
+    }
+
+    .art-footer-copy {
+        margin-left: 0 !important
+    }
+
+    .art-footer-aside {
+        flex-direction: column;
+        gap: 10px;
+        margin-left: 0
+    }}
+
 </style>
