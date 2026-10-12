@@ -1248,6 +1248,14 @@ body.theme-light .art-side-item {
         background: var(--art-accent)
     }
 
+    /* 评论区搬到正文列后，输入区与分页器不能再沿用窄侧栏的 16px，
+       否则输入框比评论列表多出 12px，看着像错位 */
+    .art-detail-side-foot,
+    .art-detail-compose {
+        padding-left: clamp(16px, 3vw, 28px);
+        padding-right: clamp(16px, 3vw, 28px)
+    }
+
     /* 侧栏整列不滚：两个半区各占 50%，超出部分只在自己区内滚 */
     .art-detail-page .art-detail-side {
         overflow: hidden
