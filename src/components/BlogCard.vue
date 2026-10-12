@@ -120,6 +120,23 @@ function deletePost() {
   })
 }
 
+/* 精选状态以卡片自身数据为准：切换后就地改回来，不整页刷新 */
+const isRecommended = computed(() => props.post.isRecommend === 1)
+const recommendPending = ref(false)
+
+async function toggleRecommend() {
+  if (recommendPending.value) return
+  recommendPending.value = true
+  try {
+    const data = await request(`/blog/recommend/${props.post.id}`, { method: 'POST' })
+    props.post.isRecommend = data.isRecommend
+    uiStore.showToast(data.isRecommend === 1 ? '已设为站长精选' : '已取消精选')
+  } catch (e) {
+  } finally {
+    recommendPending.value = false
+  }
+}
+
 function getFullUrl(url) {
   if (!url) return ''
   if (url.startsWith('http') || url.startsWith('data:')) return url
@@ -312,6 +329,9 @@ const abstractMediaStyle = computed(() => {
                 </div>
                 <div class="art-blog-foot-right">
                     <div v-if="authStore.isGlobalAdmin" class="art-card-actions">
+                        <i class="ph-push-pin"
+                            :class="[isRecommended ? 'ph-fill is-recommend' : 'ph-bold', recommendPending ? 'pointer-events-none opacity-60' : '']"
+                            :title="isRecommended ? '取消站长精选' : '设为站长精选'" @click.stop="toggleRecommend"></i>
                         <i class="ph-bold ph-pencil-simple" @click.stop="editPost"></i>
                         <i class="ph-bold ph-trash" @click.stop="deletePost"></i>
                     </div>
@@ -321,3 +341,11 @@ const abstractMediaStyle = computed(() => {
         </div>
     </article>
 </template>
+
+<style scoped>
+/* 已精选：跟主题青走；未精选与另外两个图标同为灰。
+   带上 .art-blog-card 前缀是为了压过全局 .art-card-actions i:hover 的 color:#fff */
+.art-blog-card .art-card-actions i.is-recommend {
+    color: var(--art-accent)
+}
+</style>
