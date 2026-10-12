@@ -848,6 +848,13 @@ watch(
     }
 }
 
+/* 手机端同样把输入区往下让 8px（全局那条是 6px，这里收到 14px） */
+@media (max-width:1023px) {
+    .art-detail-compose-head {
+        margin-bottom: 14px
+    }
+}
+
 /* 发送按钮：提交态图标交叉淡入淡出，圆形尺寸保持不变 */
 .art-send {
     display: inline-grid;
@@ -1304,6 +1311,11 @@ body.theme-light .art-side-item {
     .art-detail-compose {
         padding-left: clamp(16px, 3vw, 28px);
         padding-right: clamp(16px, 3vw, 28px)
+    }
+
+    /* 星级与下方输入区挨得太紧：PC 端再多让出 8px */
+    .art-detail-compose-head {
+        margin-bottom: 20px
     }
 
     /* 侧栏整列不滚：两个半区各占 50%，超出部分只在自己区内滚 */
