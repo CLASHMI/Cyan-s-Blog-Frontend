@@ -639,7 +639,7 @@ watch(
                         <div v-else-if="commentsStatusMessage" class="art-empty">{{ commentsStatusMessage }}</div>
                     </div>
 
-                    <div class="art-detail-side-foot">
+                    <div v-if="totalCommentPages > 1" class="art-detail-side-foot">
                         <button @click="changeCommentPage(-1)" :disabled="!!detail && currentCommentPage <= 1"
                             class="art-icon-btn art-icon-btn-sm"><i class="ph-bold ph-caret-left"></i></button>
                         <span id="detailCommentPageInfo" class="art-pager-info">{{ commentPageInfoText }}</span>
