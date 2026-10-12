@@ -252,16 +252,11 @@ function goBack() {
   else router.push('/blog')
 }
 
-/* 同一组件换文章：点击瞬间先淡入加载态，新正文落地后再收尾（首次进入由外层 fade-slide 负责） */
-const postSwapping = ref(false)
-let swapTimer = 0
+/* 同组件换文章：类一旦挂上就不再摘——摘掉会让 animation-name 回落到全局 artDetailFade 并重播一次淡入，
+   正文落地后就会闪一下；首次进入（直接打开详情）不挂，仍走外层 fade-slide 与全局淡入 */
+const postSwapped = ref(false)
 
-function endPostSwapSoon() {
-  clearTimeout(swapTimer)
-  swapTimer = window.setTimeout(() => { postSwapping.value = false }, 620)
-}
-
-async function loadDetail(id, animateSwap = false) {
+async function loadDetail(id) {
   if (id === null || id === undefined) return
   const seq = ++detailSeq
   loadingDetail.value = true
@@ -274,10 +269,7 @@ async function loadDetail(id, animateSwap = false) {
     detail.value = null
     detailError.value = '这条内容不存在或已被删除。'
   } finally {
-    if (seq === detailSeq) {
-      loadingDetail.value = false
-      if (animateSwap) endPostSwapSoon()
-    }
+    if (seq === detailSeq) loadingDetail.value = false
   }
 }
 
@@ -495,7 +487,6 @@ watch(
 )
 
 onUnmounted(() => {
-  clearTimeout(swapTimer)
   if (endResize) endResize()
   summarySeq += 1
   stopSummaryTyping()
@@ -506,18 +497,18 @@ onUnmounted(() => {
 watch(
   postId,
   (id, prevId) => {
-    /* 换文章（而非首次进入）：点击的瞬间就让加载态淡入 */
-    const switching = !!prevId && prevId !== id
-    postSwapping.value = switching
+    /* 只有换文章（而非首次进入）才启动入场动效：加载态与新正文各淡入一次 */
+    if (prevId && prevId !== id) postSwapped.value = true
     detail.value = null
     detailError.value = ''
-    catalogList.value = []
+    /* 这里不清 catalogList：目录列若跟着清，正文列会在换文章瞬间先撑宽再收回，看着像横向抖一下；
+       新正文解析完会把目录回传进来，届时列宽自然跟着新文章走 */
     /* 从侧栏列表换一篇是同一个组件实例，正文的滚动位置要手动归零 */
     if (detailBodyEl.value) detailBodyEl.value.scrollTop = 0
     if (scrollElement.value) scrollElement.value.scrollTop = 0
     setRating(0)
     commentInput.value = ''
-    loadDetail(id, switching)
+    loadDetail(id)
     loadComments(id, 1)
   },
   { immediate: true },
@@ -566,7 +557,7 @@ watch(
             <button v-if="hasCatalog" type="button" class="art-detail-grip" :class="{ 'is-dragging': resizing }"
                 @pointerdown="startCatalogResize" title="拖动调整目录宽度" aria-label="拖动调整目录宽度"></button>
 
-            <div id="detail-scroll-container" class="art-detail-stage" :class="{ 'is-post-swap': postSwapping }"
+            <div id="detail-scroll-container" class="art-detail-stage" :class="{ 'is-post-swap': postSwapped }"
                 @scroll.passive="onDetailScroll">
                 <!-- 详情未回来前用等高占位撑住画板，避免结构先塌后撑 -->
                 <div v-if="loadingDetail" class="art-detail-loading">
@@ -1393,7 +1384,7 @@ body.theme-light .art-side-item {
 
     to {
         opacity: 1;
-        transform: translateY(0)
+        transform: none
     }
 }
 
@@ -1401,7 +1392,8 @@ body.theme-light .art-side-item {
 .art-detail-stage.is-post-swap > .art-detail-loading,
 .art-detail-stage.is-post-swap > .art-detail-desc,
 .art-detail-stage.is-post-swap > .art-detail-empty-stage {
-    animation: post-swap-in .42s var(--art-ease) both
+    /* 不留填充态：动画收尾回到基础值（opacity 1 / transform none），正文不会长期挂着 transform */
+    animation: post-swap-in .42s var(--art-ease)
 }
 
 @media (prefers-reduced-motion: reduce) {
