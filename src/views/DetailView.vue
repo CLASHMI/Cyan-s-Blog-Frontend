@@ -848,10 +848,15 @@ watch(
     }
 }
 
-/* 手机端同样把输入区往下让 8px（全局那条是 6px，这里收到 14px） */
+/* 手机端同样：星级上方留白 6px -> 14px 让出空间，输入区整体下移 8px */
 @media (max-width:1023px) {
     .art-detail-compose-head {
         margin-bottom: 14px
+    }
+
+    /* 底部留白同步收 8px，方框高度保持原样 */
+    .art-detail-compose {
+        padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px))
     }
 }
 
@@ -1313,9 +1318,14 @@ body.theme-light .art-side-item {
         padding-right: clamp(16px, 3vw, 28px)
     }
 
-    /* 星级与下方输入区挨得太紧：PC 端再多让出 8px */
+    /* 星级与下方输入区挨得太紧：PC 端输入区整体下移 8px */
     .art-detail-compose-head {
         margin-bottom: 20px
+    }
+
+    /* 这 8px 从输入区下方让出来：方框高度与五角星位置都不动，只有输入框+发送按钮下移 */
+    .art-detail-compose {
+        padding-bottom: 12px
     }
 
     /* 侧栏整列不滚：两个半区各占 50%，超出部分只在自己区内滚 */
