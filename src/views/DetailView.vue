@@ -516,7 +516,7 @@ watch(
 </script>
 
 <template>
-    <section id="detailView" class="art-detail-page">
+    <section id="detailView" class="art-detail-page" :class="{ 'is-post-swap': postSwapped }">
         <div class="art-detail-bar">
             <div class="art-detail-bar-left">
                 <button @click="goBack" class="art-icon-btn art-icon-btn-sm" title="返回上一页"><i
@@ -557,8 +557,7 @@ watch(
             <button v-if="hasCatalog" type="button" class="art-detail-grip" :class="{ 'is-dragging': resizing }"
                 @pointerdown="startCatalogResize" title="拖动调整目录宽度" aria-label="拖动调整目录宽度"></button>
 
-            <div id="detail-scroll-container" class="art-detail-stage" :class="{ 'is-post-swap': postSwapped }"
-                @scroll.passive="onDetailScroll">
+            <div id="detail-scroll-container" class="art-detail-stage" @scroll.passive="onDetailScroll">
                 <!-- 详情未回来前用等高占位撑住画板，避免结构先塌后撑 -->
                 <div v-if="loadingDetail" class="art-detail-loading">
                     <i class="ph-bold ph-spinner-gap animate-spin"></i>
@@ -1375,11 +1374,11 @@ body.theme-light .art-side-item {
     }
 }
 
-/* ---- 换文章（PC / 手机同一套）：加载态与新的正文各自淡入一次 ---- */
+/* ---- 换文章（PC / 手机同一套）：顶栏、加载态与新的正文各自淡入一次 ---- */
 @keyframes post-swap-in {
     from {
         opacity: 0;
-        transform: translateY(10px)
+        transform: translateY(12px)
     }
 
     to {
@@ -1388,20 +1387,24 @@ body.theme-light .art-side-item {
     }
 }
 
-/* 只动正文块、不动画板容器本身：stage 里挂着吸底输入区（sticky），整体 transform 会带着它一起位移 */
-.art-detail-stage.is-post-swap > .art-detail-loading,
-.art-detail-stage.is-post-swap > .art-detail-desc,
-.art-detail-stage.is-post-swap > .art-detail-empty-stage {
+/* 只动顶栏与正文块、不动画板容器本身：stage 里挂着吸底输入区（sticky），整体 transform 会带着它一起位移 */
+/* 最扎眼的“瞬间感”来自顶栏标题（它在 stage 之外，原来完全没参与动效），所以这次带上顶栏一起淡入 */
+/* 缓动不再用 --art-ease：它是 expo-out，前 20% 就走完约 80% 的透明度，看着只闪了 200ms——把 .42s 拉到 .72s
+   也救不回来（两轮反馈都是“太快”）。换成全程均匀推进的曲线，0.7s 里透明度一直在变，才看得出是一次切换 */
+.art-detail-page.is-post-swap > .art-detail-bar,
+.art-detail-page.is-post-swap .art-detail-stage > .art-detail-loading,
+.art-detail-page.is-post-swap .art-detail-stage > .art-detail-desc,
+.art-detail-page.is-post-swap .art-detail-stage > .art-detail-empty-stage {
     /* 不留填充态：动画收尾回到基础值（opacity 1 / transform none），正文不会长期挂着 transform */
-    /* .72s：换文章本身是可感知的内容切换，太快会像直接闪出来（.42s 被反馈太快） */
-    animation: post-swap-in .72s var(--art-ease)
+    animation: post-swap-in .7s cubic-bezier(.4, 0, .2, 1)
 }
 
 @media (prefers-reduced-motion: reduce) {
 
-    .art-detail-stage.is-post-swap > .art-detail-loading,
-    .art-detail-stage.is-post-swap > .art-detail-desc,
-    .art-detail-stage.is-post-swap > .art-detail-empty-stage {
+    .art-detail-page.is-post-swap > .art-detail-bar,
+    .art-detail-page.is-post-swap .art-detail-stage > .art-detail-loading,
+    .art-detail-page.is-post-swap .art-detail-stage > .art-detail-desc,
+    .art-detail-page.is-post-swap .art-detail-stage > .art-detail-empty-stage {
         animation: none
     }
 }
