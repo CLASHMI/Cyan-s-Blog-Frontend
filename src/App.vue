@@ -318,4 +318,14 @@ async function copyFooterInfo(text, okMsg = '已复制') {
 /* 只锁首页：随笔、留言与控制台仍由文档正常滚动。 */
 :global(html:has(.cyan-shell--home)), :global(body:has(.cyan-shell--home)) { overflow: hidden; }
 :global(body:has(.cyan-shell--home) #oml2d-stage) { visibility: hidden !important; pointer-events: none !important; }
+
+/* ---- Toast：容器与气泡都在本组件模板里，样式随组件走 ---- */
+/* Toast */.art-toast {    display: flex;    align-items: center;    gap: 12px;    padding: 12px 20px;    border-radius: 100px;    font-size: 13px;    letter-spacing: .04em;    color: #fafafa;    background: rgba(6, 18, 22, .95);    border: 1px solid var(--art-line-2);    box-shadow: 0 24px 60px rgba(0, 0, 0, .6);    -webkit-backdrop-filter: blur(18px);    backdrop-filter: blur(18px)}.art-toast-icon {    font-size: 15px}.art-toast-ok .art-toast-icon {    color: #4ade80}.art-toast-err {    background: rgba(40, 10, 12, .94);    border-color: rgba(248, 113, 113, .3)}.art-toast-err .art-toast-icon {    color: #f87171}/* Toast 进出场（JS 控制 class） */.toast-enter {    transform: translateY(100%);    opacity: 0}.toast-enter-active {    transform: translateY(0);    opacity: 1;    transition: all .3s cubic-bezier(.16, 1, .3, 1)}.toast-exit-active {    /* 离场时脱离文档流：其余 Toast 立刻补位，配合 .toast-move 形成滑动让位 */    position: absolute;    transform: translateY(100%);    opacity: 0;    transition: all .3s cubic-bezier(.16, 1, .3, 1)}/* TransitionGroup 让位动画：剩余 Toast 平滑移动到新位置 */.toast-move {    transition: transform .3s cubic-bezier(.16, 1, .3, 1)}
+
+/* 移动端：给底部悬浮元素让位（原来挂在全局“移动端适配”媒体查询里） */
+@media (max-width:1023px) {
+    #toastContainer {
+        bottom: calc(108px + env(safe-area-inset-bottom, 0px))
+    }
+}
 </style>
