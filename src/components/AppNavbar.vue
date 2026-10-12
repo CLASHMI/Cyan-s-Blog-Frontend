@@ -7,18 +7,24 @@ import { useUiStore } from '../stores/useUiStore'
 const route = useRoute()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
+const emit = defineEmits(['retreat-change'])
 
 const isDetail = computed(() => route.path.startsWith('/post/'))
 const isHome = computed(() => route.path === '/')
-const navScrolled = ref(false)
 const menuOpen = ref(false)
-const navbarFrosted = computed(() => !isHome.value || navScrolled.value || menuOpen.value)
+const navRetreat = ref(0)
+const navFocused = ref(false)
+const navPinned = computed(() => menuOpen.value || musicOpen.value || navFocused.value)
+let navScrollFrame = 0
+let desktopMedia = null
 
 /* 路由一变就收起手机端菜单 */
 watch(
   () => route.path,
   () => {
     menuOpen.value = false
+    navRetreat.value = 0
+    nextTick(handleNavScroll)
   },
 )
 
@@ -26,8 +32,37 @@ function scrollToTop() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-function handleNavScroll() {
-  navScrolled.value = window.scrollY > 16
+function handleNavScroll(event) {
+  // 详情锁住文档，实际滚动发生在正文/移动端 body；目录和推荐滚动不控制导航。
+  if (event && isDetail.value && !['detail-scroll-container', 'detail-reading-body'].includes(event.target?.id)) return
+  if (event && !isDetail.value && event.target !== document) return
+  if (navScrollFrame) return
+  navScrollFrame = requestAnimationFrame(() => {
+    navScrollFrame = 0
+    if (!desktopMedia?.matches || isHome.value) {
+      navRetreat.value = 0
+      return
+    }
+    const y = isDetail.value
+      ? Math.max(document.getElementById('detail-scroll-container')?.scrollTop || 0, document.getElementById('detail-reading-body')?.scrollTop || 0)
+      : Math.max(0, window.scrollY)
+    // 两个稳定终态。阈值间隔大于导航让出的 74px，避免短文在底部钳位后反复触发。
+    if (y >= 120) navRetreat.value = 1
+    else if (y <= 12) navRetreat.value = 0
+  })
+}
+
+function syncNavViewport() {
+  navRetreat.value = 0
+  handleNavScroll()
+}
+
+function revealNavOnTab(event) {
+  if (event.key === 'Tab') navRetreat.value = 0
+}
+
+function handleNavFocusOut(event) {
+  navFocused.value = event.currentTarget.contains(event.relatedTarget) && event.relatedTarget.matches(':focus-visible')
 }
 
 /* ---------------- 网易云音乐播放器（APlayer + MetingJS，脚本走 index.html 的 CDN） ---------------- */
@@ -36,6 +71,7 @@ function handleNavScroll() {
 const METING_API = 'https://api.i-meto.com/meting/api?server=:server&type=:type&id=:id&r=:r'
 const musicWrapEl = ref(null)
 const musicOpen = ref(false)
+watch(() => navPinned.value ? 0 : navRetreat.value, value => emit('retreat-change', value), { immediate: true })
 /* 首次点开才创建 <meting-js>：首屏零额外请求、零二次实例开销，点过一次后保持挂载（切歌不重新拉歌单） */
 const musicMounted = ref(false)
 const musicPlaying = ref(false)
@@ -243,20 +279,27 @@ function handleAvatarError(event) {
 }
 
 onMounted(() => {
-  navScrolled.value = window.scrollY > 16
-  window.addEventListener('scroll', handleNavScroll, { passive: true })
+  desktopMedia = window.matchMedia('(min-width:1024px)')
+  desktopMedia.addEventListener('change', syncNavViewport)
+  syncNavViewport()
+  document.addEventListener('keydown', revealNavOnTab)
+  document.addEventListener('scroll', handleNavScroll, { passive: true, capture: true })
   document.addEventListener('click', onGlobalClickForMusic)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('scroll', handleNavScroll)
+  desktopMedia?.removeEventListener('change', syncNavViewport)
+  cancelAnimationFrame(navScrollFrame)
+  document.removeEventListener('keydown', revealNavOnTab)
+  document.removeEventListener('scroll', handleNavScroll, true)
   document.removeEventListener('click', onGlobalClickForMusic)
   if (musicBindTimer) clearTimeout(musicBindTimer)
 })
 </script>
 
 <template>
-    <header class="cyan-navbar" :class="{ 'is-frosted': navbarFrosted, 'is-home': isHome }"
+    <header class="cyan-navbar" :class="{ 'is-home': isHome, 'is-retreated': navRetreat === 1 && !navPinned }"
+        @focusin="navFocused = $event.target.matches(':focus-visible')" @focusout="handleNavFocusOut"
         @keydown.esc="menuOpen = false">
       <div class="cyan-navbar-inner">
         <RouterLink to="/" class="cyan-brand" aria-label="Cyan · 主页" @click="scrollToTop">Cyan<span>.</span></RouterLink>
@@ -382,28 +425,29 @@ onUnmounted(() => {
   inset: 0 0 auto;
   z-index: 110;
   color: var(--art-ink-2);
-  border-bottom: 1px solid transparent;
+  border: 0;
   background: transparent;
-  /* 回到首页时顶栏要在"毛玻璃"和"透明"之间切换：
-     color 与 backdrop-filter 也得一起过渡，否则那一帧会硬闪一下 */
-  transition: background-color .45s ease, border-color .45s ease, box-shadow .45s ease, color .45s ease,
-    -webkit-backdrop-filter .45s ease, backdrop-filter .45s ease;
+  transition: color .3s ease;
 }
 .cyan-navbar.is-home { color: #b8e1e5; }
 :global(body.theme-light .cyan-navbar.is-home) { color: #25565c; }
-.cyan-navbar.is-frosted {
-  /* 吸顶栏每帧都要对下方像素重做一次高斯模糊，是全站最贵的滚动开销之一。
-     把背景调实一点（.78 → .9）、模糊半径减半（22px → 12px）并去掉 saturate 的额外色彩通道，
-     观感几乎不变，但每帧的模糊开销明显下降 */
-  background: rgba(7, 18, 21, .9);
-  border-color: rgba(169, 222, 222, .1);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 4px 30px rgba(0, 25, 30, .035);
+@media (min-width:1024px) {
+  /* 显隐是同一组属性的正反向过渡，不裁切文字；对称缓动让两端节奏一致。 */
+  .cyan-navbar {
+    transform: none;
+    transform-origin: 50% 0;
+    opacity: 1;
+    transition: transform .6s cubic-bezier(.4, 0, .6, 1), opacity .6s cubic-bezier(.4, 0, .6, 1), color .3s ease;
+  }
+  .cyan-navbar.is-retreated {
+    transform: translateY(-8px) scale(.98);
+    opacity: 0;
+    pointer-events: none;
+  }
 }
-:global(body.theme-light .cyan-navbar.is-frosted) {
-  background: rgba(241, 250, 248, .9);
-  border-color: rgba(47, 102, 105, .1);
+@media (max-width:1023px) {
+  /* 移动端不改变导航/正文几何位置；同色渐变保证滚动时文字不会透进导航。 */
+  .cyan-navbar:not(.is-home) { background: linear-gradient(var(--art-bg) 82%, transparent); }
 }
 .cyan-navbar-inner {
   height: 74px;

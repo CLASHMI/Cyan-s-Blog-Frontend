@@ -234,7 +234,7 @@ async function loadAdminCategories() {
     categoryLoaded.value = true
 
     adminCategories.value = data
-    adminStatusMessage.value = data.length ? '' : '未找到分类。'
+    adminStatusMessage.value = data.length ? '' : '这里空空如也哦。'
   } catch (e) {
     if (seq === catSeq) {
       adminCategories.value = []
@@ -325,7 +325,7 @@ async function loadAdminTags() {
     tagLoaded.value = true
 
     adminTags.value = data
-    tagStatusMessage.value = data.length ? '' : '未找到标签。'
+    tagStatusMessage.value = data.length ? '' : '这里空空如也哦。'
   } catch (e) {
     if (seq === tagSeq) {
       adminTags.value = []
@@ -540,7 +540,7 @@ onUnmounted(() => {
                           <div class="art-mini-preview">
                               <MdPreview v-if="postContentLength" :modelValue="miniPreviewContent"
                                   :theme="mdTheme" />
-                              <p v-else class="art-blog-preview-empty">正文空空如也...</p>
+                              <p v-else class="art-blog-preview-empty">这里空空如也哦。</p>
                           </div>
                           <span v-if="postContentLength" class="art-preview-mask" aria-hidden="true"></span>
                       </div>

@@ -256,7 +256,7 @@ async function loadBlogs({ animate = true, silent = false } = {}) {
         blogs.value = data.records || []
         totalBlogPages.value = Math.max(1, Math.ceil((data.total || 0) / 6))
         blogTotalCount.value = Number(data.total) || 0
-        blogStatusMessage.value = blogs.value.length ? '' : '还没有随笔发布哦。'
+        blogStatusMessage.value = blogs.value.length ? '' : '这里空空如也哦。'
         /* 切筛选 / 翻页才重放列表入场动画；从详情返回的静默刷新保留原 DOM，不跳滚动 */
         if (animate) listKey.value++
     } catch (e) {
@@ -767,7 +767,7 @@ onBeforeUnmount(() => {
                                   @click="toggleTagFilter(tag.id)">
                                   <span class="tag-node" aria-hidden="true"></span><span class="tag-name">{{ tag.name }}</span><i class="art-tagcloud-count">{{ String(tag.count).padStart(2, '0') }}</i>
                               </button>
-                              <p v-if="!tagCloud.length" class="art-tagcloud-empty">还没有随笔用过标签</p>
+                              <p v-if="!tagCloud.length" class="art-tagcloud-empty">这里空空如也哦。</p>
                           </div>
                       </div>
                       <div v-if="activeTagName" class="tag-caption"><span>正在探索 · {{ activeTagName }}</span><button type="button" @click="clearTagFilter">清除筛选 <i class="ph-bold ph-x" aria-hidden="true"></i></button></div>
@@ -852,7 +852,7 @@ onBeforeUnmount(() => {
                       <div class="widget-heading"><h3 id="recentTitle" class="art-panel-title"><i class="ph-light ph-clock-counter-clockwise" aria-hidden="true"></i>最近更新</h3><span class="widget-kicker">LATEST / {{ String(recentPosts.length).padStart(2, '0') }}</span></div>
                       <p v-if="recentLoading && !recentPosts.length" class="widget-status" role="status">正在读取更新…</p>
                       <div v-else-if="recentError" class="widget-status" role="status"><span>{{ recentError }}</span><button type="button" @click="loadRecentPosts">重试</button></div>
-                      <p v-else-if="!recentPosts.length" class="widget-status">还没有发布的随笔</p>
+                      <p v-else-if="!recentPosts.length" class="widget-status">这里空空如也哦。</p>
                       <ol v-else class="recent-list">
                           <li v-for="post in recentPosts" :key="post.id">
                               <RouterLink :to="'/post/' + post.id" class="recent-link">
@@ -906,7 +906,7 @@ onBeforeUnmount(() => {
                       <div class="widget-heading"><h3 id="visitorsTitle" class="art-panel-title"><i class="ph-light ph-footprints" aria-hidden="true"></i>最近来客</h3><span class="widget-kicker">HELLO / {{ String(recentUsers.length).padStart(2, '0') }}</span></div>
                       <p v-if="usersLoading && !recentUsers.length" class="widget-status" role="status">正在收集足迹…</p>
                       <div v-else-if="usersError" class="widget-status" role="status"><span>{{ usersError }}</span><button type="button" @click="loadRecentUsers">重试</button></div>
-                      <p v-else-if="!recentUsers.length" class="widget-status">还没有来客，留一处安静的座位。</p>
+                      <p v-else-if="!recentUsers.length" class="widget-status">这里空空如也哦。</p>
                       <div v-else class="visitors-viewport" :class="{ 'is-scrolling': scrollUsers }" tabindex="0" aria-label="最新加入的用户，悬停或聚焦可暂停滚动">
                           <div class="visitors-track" :style="{ '--visitors-duration': `${recentUsers.length * 2}s` }">
                               <ul v-for="copy in (scrollUsers ? 2 : 1)" :key="copy" class="visitors-list" :aria-hidden="copy === 2 ? 'true' : undefined">
@@ -1201,7 +1201,11 @@ onBeforeUnmount(() => {
     .journal-main :deep(.art-blog-foot) { margin-top: 6px; padding-top: 8px; }
     /* 标签多的时候别跟点赞/评分/继续阅读抢同一行：
        给它一整行，5 个标签也能完整排下，卡片高度也只是多这一行，不会被撑成三行 */
-    .journal-main :deep(.art-blog-foot-right) { order: 1; margin-left: auto; }
+    .journal-main :deep(.art-blog-foot-right) { order: 1; margin-left: auto; gap: 10px; }
+    /* 站长操作栏（精选/编辑/删除）与「继续阅读」两组固定宽度加起来已接近卡片宽度，
+       内部留白再用桌面端的 14px / 18px，就会在 378px 以下的手机上被挤到单独一行，
+       正好压在标签行上方。移动端收窄这两处间距，让整条操作栏留在点赞/评分这一行。 */
+    .journal-main :deep(.art-card-actions) { gap: 8px; }
     .journal-main :deep(.art-blog-tags) { order: 2; flex: 1 1 100%; }
     /* 两个下拉并排、搜索整行：筛选条从三行压到两行 */
     .journal-main .art-blog-filters { gap: 10px; }

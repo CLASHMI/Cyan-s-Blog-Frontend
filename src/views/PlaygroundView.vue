@@ -53,13 +53,7 @@ async function loadResources() {
     resources.value = records
     total.value = Number.isFinite(data?.total) ? data.total : records.length
     totalPages.value = Math.max(1, Math.ceil((Number(data?.total) || records.length) / PAGE_SIZE))
-    statusMessage.value = records.length
-      ? ''
-      : kw
-        ? '没搜到匹配的资源。'
-        : currentPage.value > 1
-          ? '这一页是空的，往前翻翻吧。'
-          : '柜子还空着，等站长往里塞点好东西。'
+    statusMessage.value = records.length ? '' : '这里空空如也哦。'
     syncLikeCounts()
     /* 排序 / 翻页 / 搜索换了内容：让卡片重新入场，不要硬切 */
     if (records.length) listRevision.value += 1
@@ -360,8 +354,8 @@ onUnmounted(() => {
       </div>
       <div v-else-if="boardEmpty" class="oae-empty" role="status">
         <i :class="loadFailed ? 'ph-light ph-cloud-slash' : 'ph-light ph-sparkle'" aria-hidden="true"></i>
-        <h3>{{ loadFailed ? '柜子暂时没打开' : keyword ? '还没找到这件小东西' : '留一点空白，等有趣的东西' }}</h3>
-        <p>{{ statusMessage }}</p>
+        <h3>{{ loadFailed ? '柜子暂时没打开' : statusMessage }}</h3>
+        <p v-if="loadFailed">{{ statusMessage }}</p>
         <button v-if="loadFailed" type="button" @click="loadResources">重新打开</button>
         <button v-else-if="keyword" type="button" @click="keyword = ''; onSearchInput()">看看全部</button>
       </div>
@@ -388,7 +382,7 @@ onUnmounted(() => {
                 <i class="ph-bold ph-arrow-up-right oae-arrow" aria-hidden="true"></i>
               </header>
               <p class="oae-desc" :class="{ 'is-empty': !item.description }" :title="item.description">
-                {{ item.description || '还没有说明，打开探索一下。' }}
+                {{ item.description || '这里空空如也哦。' }}
               </p>
               <footer class="oae-foot">
                 <span class="oae-host" :title="item.host">{{ item.host || '未附链接' }}</span>

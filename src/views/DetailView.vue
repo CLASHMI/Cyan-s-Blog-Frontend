@@ -46,12 +46,9 @@ function onDetailScroll(event) {
     scroller.scrollTop > DETAIL_TOP_THRESHOLD && remaining > DETAIL_BOTTOM_HIDE_GAP
 }
 
-/* 随笔目录监听左栏滚动容器，用于高亮当前标题 */
+/* 随笔目录监听左栏滚动容器（模板 ref 直接指向 #detail-scroll-container），用于高亮当前标题 */
 const scrollElement = ref(null)
-onMounted(() => {
-  scrollElement.value = document.getElementById('detail-scroll-container')
-  loadSidePosts()
-})
+onMounted(loadSidePosts)
 
 function scrollDetailTop() {
   const targets = [detailBodyEl.value, scrollElement.value].filter(Boolean)
@@ -67,6 +64,9 @@ const submitting = ref(false)
 const comments = ref([])
 const commentsStatusMessage = ref('')
 const commentsLoading = ref(true)
+const commentsReady = ref(false)
+const commentThreadEl = ref(null)
+const commentAnimations = new Set()
 const currentCommentPage = ref(1)
 const totalCommentPages = ref(1)
 const commentTotal = ref(0)
@@ -81,6 +81,18 @@ const detailTitle = computed(() => {
   if (!p) return ''
   return p.title || firstLine(p.content) || '无标题随笔'
 })
+
+// 来源随当前历史条目保存，刷新、后退/前进都对应同一个返回目标。
+const previousPost = ref(null)
+const backLabel = computed(() => previousPost.value?.title || '返回随笔页')
+
+function syncPreviousPost() {
+  const state = router.options.history.state
+  const previous = state.readingReturn
+  previousPost.value = previous && previous.path === state.back && /^\/post\/[^/?#]+(?:[?#]|$)/.test(previous.path)
+    ? previous
+    : null
+}
 
 const detailCategoryText = computed(() => {
   const p = detail.value
@@ -143,9 +155,9 @@ const CATALOG_MAX_W = 340
 const CONTENT_MIN_W = 360
 /* 目录与正文之间的把手占一条 8px 列，与 .art-detail-grip 的 width 一致 */
 const GRIP_W = 8
-/* 右侧栏固定宽度，与 .art-detail-page .art-detail-body 的 320px 保持一致 */
-const SIDE_FIXED_W = 320
-const catalogWidth = ref(220)
+/* 右侧栏固定宽度，与 .art-detail-page .art-detail-body 的 280px 保持一致 */
+const SIDE_FIXED_W = 280
+const catalogWidth = ref(190)
 const resizing = ref(false)
 /* 当前拖拽的收尾函数，组件卸载时兜底清理 */
 let endResize = null
@@ -199,9 +211,24 @@ async function loadSidePosts() {
   }
 }
 
+/* 两个列表结构完全一致：用一份数据驱动，模板只写一遍 */
+const sideGroups = computed(() => [
+  {
+    key: 'recommend',
+    title: '精选文章',
+    icon: 'ph-fill ph-push-pin',
+    posts: sideRecommend.value,
+    empty: '这里空空如也哦。',
+  },
+  { key: 'hot', title: '近期最热', icon: 'ph-bold ph-fire', posts: sideHot.value, empty: '这里空空如也哦。' },
+])
+
 function openPost(id) {
   if (id === null || id === undefined) return
-  router.push('/post/' + id)
+  router.push({
+    path: '/post/' + id,
+    state: { readingReturn: { path: route.fullPath, title: detailTitle.value || '无标题随笔' } },
+  })
 }
 
 /* 侧栏卡片封面：与随笔页“最近更新”同一套解析规则，相对路径补成后端地址 */
@@ -262,15 +289,17 @@ function handleAvatarError(event, comment) {
   event.target.src = generateSvgAvatar(comment?.nickname, comment?.role)
 }
 
-/* 详情从随笔流进入，优先回到来源页 */
+/* 返回文字与目的地一致：有上一篇随笔就后退，否则回列表。 */
 function goBack() {
-  if (router.options.history.state.back) router.back()
+  if (previousPost.value || router.options.history.state.back === '/blog') router.back()
   else router.push('/blog')
 }
 
-/* 同组件换文章：类一旦挂上就不再摘——摘掉会让 animation-name 回落到全局 artDetailFade 并重播一次淡入，
-   正文落地后就会闪一下；首次进入（直接打开详情）不挂，仍走外层 fade-slide 与全局淡入 */
-const postSwapped = ref(false)
+/* 换文章入场动效的序号：0 = 首次进入（直接打开详情，不挂类，仍走外层 fade-slide 与全局淡入），
+   每换一次文章 +1。类一旦挂上就不再摘——摘掉会让 animation-name 回落到全局 artDetailFade
+   并重播一次淡入，正文落地后会闪一下；同一个值还给顶栏当 key：顶栏是常驻元素，
+   animation-name 不变就不会重播动画，换 key 才能让它的淡入每次换文章都重新播 */
+const postSwapSeq = ref(0)
 
 async function loadDetail(id) {
   if (id === null || id === undefined) return
@@ -291,8 +320,14 @@ async function loadDetail(id) {
   }
 }
 
-/* 只有用户手动翻页才走 View Transition，首屏直接渲染 */
-async function loadComments(id, page = 1, animated = false) {
+function stopCommentMotion() {
+  commentAnimations.forEach(animation => animation.cancel())
+  commentAnimations.clear()
+  if (commentThreadEl.value) commentThreadEl.value.style.overflow = ''
+}
+
+/* 只在已有评论更新时过渡高度；首屏不动画，也不为刷新插入加载占位。 */
+async function loadComments(id, page = 1) {
   if (id === null || id === undefined) return
   const seq = ++commentsSeq
   commentsLoading.value = true
@@ -302,16 +337,44 @@ async function loadComments(id, page = 1, animated = false) {
     const records = data.records || data
     const total = data.total !== undefined ? data.total : records.length || 0
 
-    const applyComments = async () => {
-      comments.value = records
-      currentCommentPage.value = page
-      commentTotal.value = total
-      totalCommentPages.value = Math.max(1, Math.ceil(total / 10))
-      commentsStatusMessage.value = records.length ? '' : '暂无评论，快来抢沙发吧。'
-      await nextTick()
+    const thread = commentThreadEl.value
+    const animate = commentsReady.value && thread && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const before = animate ? thread.getBoundingClientRect() : null
+    const oldRows = new Map(animate ? Array.from(thread.querySelectorAll('[data-comment-id]'), el =>
+      [el.dataset.commentId, el.getBoundingClientRect().top - before.top]) : [])
+    stopCommentMotion()
+    comments.value = records
+    currentCommentPage.value = page
+    commentTotal.value = total
+    totalCommentPages.value = Math.max(1, Math.ceil(total / 10))
+    commentsStatusMessage.value = records.length ? '' : '这里空空如也哦。'
+    commentsReady.value = true
+    commentsLoading.value = false
+    await nextTick()
+    if (!animate || seq !== commentsSeq || !thread.isConnected) return
+
+    const after = thread.getBoundingClientRect()
+    const rows = Array.from(thread.querySelectorAll('[data-comment-id]'), el => ({
+      el, top: el.getBoundingClientRect().top - after.top,
+    }))
+    const timing = { duration: 520, easing: 'cubic-bezier(.4, 0, .2, 1)' }
+    // 分页器与空状态一起参与高度变化；仅动画期间裁切，结束后恢复自然高度。
+    thread.style.overflow = 'clip'
+    const resize = thread.animate([{ height: `${before.height}px` }, { height: `${after.height}px` }], timing)
+    commentAnimations.add(resize)
+    resize.onfinish = () => {
+      thread.style.overflow = ''
+      commentAnimations.delete(resize)
     }
-    if (animated && document.startViewTransition) document.startViewTransition(applyComments)
-    else await applyComments()
+    rows.forEach(({ el, top }) => {
+      const oldTop = oldRows.get(el.dataset.commentId)
+      const motion = el.animate([
+        { opacity: oldTop === undefined ? 0 : 1, transform: `translateY(${oldTop === undefined ? 10 : oldTop - top}px)` },
+        { opacity: 1, transform: 'translateY(0)' },
+      ], timing)
+      commentAnimations.add(motion)
+      motion.onfinish = () => commentAnimations.delete(motion)
+    })
   } catch (e) {
     if (seq === commentsSeq) {
       comments.value = []
@@ -328,7 +391,7 @@ function changeCommentPage(delta) {
     currentCommentPage.value + delta > totalCommentPages.value
   )
     return
-  loadComments(postId.value, currentCommentPage.value + delta, true)
+  loadComments(postId.value, currentCommentPage.value + delta)
 }
 
 function setRating(value) {
@@ -363,7 +426,7 @@ async function submitComment() {
     uiStore.refreshStats()
     commentInput.value = ''
     setRating(0)
-    loadComments(postId.value, 1)
+    await loadComments(postId.value, 1)
     await refreshDetailRating()
   } catch (e) {
   } finally {
@@ -505,6 +568,7 @@ watch(
 )
 
 onUnmounted(() => {
+  stopCommentMotion()
   if (endResize) endResize()
   summarySeq += 1
   stopSummaryTyping()
@@ -515,8 +579,11 @@ onUnmounted(() => {
 watch(
   postId,
   (id, prevId) => {
-    /* 只有换文章（而非首次进入）才启动入场动效：加载态与新正文各淡入一次 */
-    if (prevId && prevId !== id) postSwapped.value = true
+    stopCommentMotion()
+    commentsReady.value = false
+    syncPreviousPost()
+    /* 只有换文章（而非首次进入）才启动入场动效：顶栏、加载态与新正文各淡入一次 */
+    if (prevId && prevId !== id) postSwapSeq.value += 1
     detail.value = null
     detailError.value = ''
     /* 这里不清 catalogList：目录列若跟着清，正文列会在换文章瞬间先撑宽再收回，看着像横向抖一下；
@@ -534,13 +601,15 @@ watch(
 </script>
 
 <template>
-    <section id="detailView" class="art-detail-page" :class="{ 'is-post-swap': postSwapped }">
-        <div class="art-detail-bar">
+    <section id="detailView" class="art-detail-page" :class="{ 'is-post-swap': postSwapSeq > 0 }">
+        <div :key="postSwapSeq" class="art-detail-bar">
             <div class="art-detail-bar-left">
-                <button @click="goBack" class="art-icon-btn art-icon-btn-sm" title="返回上一页"><i
+                <button @click="goBack" class="art-icon-btn art-icon-btn-sm" :title="backLabel" :aria-label="backLabel"><i
                         class="ph-bold ph-arrow-left"></i></button>
                 <div class="art-detail-meta">
-                    <h3 id="detailTitle" class="art-detail-title">{{ detailTitle }}</h3>
+                    <button type="button" id="detailTitle" class="art-detail-title reading-back-label" @click="goBack"
+                        :title="backLabel"><span class="detail-bar-title--post">{{ detailTitle || backLabel }}</span><span
+                            class="detail-bar-title--back">{{ backLabel }}</span></button>
                     <div class="art-detail-tags">
                         <span id="detailCategory" class="art-chip">{{ detailCategoryText }}</span>
                         <span v-for="name in detailTagNames" :key="name" class="art-chip art-tag"
@@ -555,6 +624,9 @@ watch(
             </div>
             <span id="detailTime" class="art-detail-time art-detail-time--bar"
                 :class="{ 'is-moved': showDescTime }">{{ detailTime }}</span>
+            <button type="button" class="reading-top-link" @click="scrollDetailTop" title="回到文章顶部，使用主页与音乐导航">
+                <i class="ph ph-arrow-up" aria-hidden="true"></i>回到页首
+            </button>
             <button id="detailDownloadBtn" @click.stop="downloadMarkdown" class="art-detail-like"
                 title="下载 Markdown 文档" aria-label="下载 Markdown 文档"><i
                     class="ph-bold ph-download-simple"></i></button>
@@ -563,12 +635,13 @@ watch(
                     class="ph-fill ph-heart"></i> {{ likeCount }}</button>
         </div>
 
-        <div ref="detailBodyEl" class="art-detail-body"
+        <div id="detail-reading-body" ref="detailBodyEl" class="art-detail-body"
             :class="{ 'art-detail-body--with-catalog': hasCatalog }"
             :style="{ '--art-detail-catalog-w': catalogWidth + 'px' }" @scroll.passive="onDetailScroll">
             <!-- 目录列（仅 PC）：没提取到目录时不占列，左侧完全留白 -->
             <section v-if="hasCatalog" class="art-detail-catalog">
                 <div class="art-catalog-inner">
+                    <div class="reading-catalog-head"><span>文章目录</span><span>{{ catalogList.length.toString().padStart(2, '0') }}</span></div>
                     <MdCatalog :key="catalogKey" editor-id="blog-preview-id" :scroll-element="scrollElement"
                         :theme="mdTheme" />
                 </div>
@@ -576,7 +649,8 @@ watch(
             <button v-if="hasCatalog" type="button" class="art-detail-grip" :class="{ 'is-dragging': resizing }"
                 @pointerdown="startCatalogResize" title="拖动调整目录宽度" aria-label="拖动调整目录宽度"></button>
 
-            <div id="detail-scroll-container" class="art-detail-stage" @scroll.passive="onDetailScroll">
+            <div id="detail-scroll-container" ref="scrollElement" class="art-detail-stage"
+                @scroll.passive="onDetailScroll">
                 <!-- 详情未回来前用等高占位撑住画板，避免结构先塌后撑 -->
                 <div v-if="loadingDetail" class="art-detail-loading">
                     <i class="ph-bold ph-spinner-gap animate-spin"></i>
@@ -586,6 +660,18 @@ watch(
                     <p class="art-detail-empty-text text-zinc-600">{{ detailError }}</p>
                 </div>
                 <template v-else>
+                    <header class="reading-heading">
+                        <p class="reading-eyebrow">随笔 <span aria-hidden="true">/</span> {{ detailCategoryText }}</p>
+                        <h1>{{ detailTitle }}</h1>
+                        <div class="reading-metadata">
+                            <time>{{ detailTime }}</time>
+                            <span>{{ detailWordCount }} 字 · 约 {{ Math.max(1, Math.ceil(detailWordCount / 350)) }} 分钟</span>
+                            <span>{{ detailViewCount }} 次阅读</span>
+                        </div>
+                        <div v-if="detailTagNames.length" class="reading-tags">
+                            <span v-for="name in detailTagNames" :key="name"># {{ name }}</span>
+                        </div>
+                    </header>
                     <!-- AI 文章摘要：标题与元数据下方、正文上方，逐字打字机输出 -->
                     <Transition name="ai-summary">
                         <section v-if="summaryVisible" id="aiPostSummary" class="art-ai-summary"
@@ -618,12 +704,12 @@ watch(
                     </div>
                     <div v-if="showEmptyStage" class="art-detail-empty-stage">
                         <i class="ph-light ph-wind art-detail-empty-icon text-zinc-600" aria-hidden="true"></i>
-                        <p class="art-detail-empty-text text-zinc-600">只有风经过... 这篇随笔没有留下正文。</p>
+                        <p class="art-detail-empty-text text-zinc-600">这里空空如也哦。</p>
                     </div>
                 </template>
-                <section class="art-detail-comments-panel">
+                <section class="art-detail-comments-panel" aria-label="文章评论">
                     <div class="art-detail-side-head">
-                        <h4 class="art-detail-side-title">评论区</h4>
+                        <div><h4 class="art-detail-side-title">评论区</h4><p class="reading-comment-caption">评价一下这篇随笔吧...</p></div>
                         <div class="flex items-center gap-3">
                             <span id="detailCommentTotal"
                                 class="art-detail-comment-total font-mono text-zinc-500">共 {{ commentTotal }} 条</span>
@@ -634,8 +720,9 @@ watch(
                         </div>
                     </div>
 
+                    <div ref="commentThreadEl" class="reading-comment-thread" :aria-busy="commentsLoading">
                     <div id="detailCommentList" class="art-comment-list art-detail-comments">
-                        <div v-for="comment in comments" :key="comment.id" class="art-comment">
+                        <div v-for="comment in comments" :key="comment.id" :data-comment-id="comment.id" class="art-comment">
                             <img :src="commentAvatar(comment)" @error="handleAvatarError($event, comment)"
                                 :alt="comment.nickname" class="art-comment-avatar">
                             <div class="art-comment-body">
@@ -660,7 +747,7 @@ watch(
                                         class="ph-bold ph-trash"></i></button>
                             </div>
                         </div>
-                        <div v-if="commentsLoading" class="art-empty"><i
+                        <div v-if="commentsLoading && !commentsReady" class="art-empty"><i
                                 class="ph-bold ph-spinner-gap animate-spin"></i> 评论加载中...</div>
                         <div v-else-if="commentsStatusMessage" class="art-empty">{{ commentsStatusMessage }}</div>
                     </div>
@@ -671,6 +758,7 @@ watch(
                         <span id="detailCommentPageInfo" class="art-pager-info">{{ commentPageInfoText }}</span>
                         <button @click="changeCommentPage(1)" :disabled="!!detail && currentCommentPage >= totalCommentPages"
                             class="art-icon-btn art-icon-btn-sm"><i class="ph-bold ph-caret-right"></i></button>
+                    </div>
                     </div>
 
                     <div class="art-detail-compose">
@@ -686,8 +774,8 @@ watch(
                         </div>
                         <div class="art-detail-compose-row">
                             <input type="text" id="detailCommentInput" v-model="commentInput" maxlength="500"
-                                autocomplete="off" placeholder="添加一条评论..." class="art-detail-input">
-                            <button @click="submitComment" :disabled="submitting" class="art-send">
+                                autocomplete="off" placeholder="添加一条评论..." aria-label="评论内容" class="art-detail-input">
+                            <button @click="submitComment" :disabled="submitting" class="art-send" aria-label="发送评论">
                                 <i class="ph-bold ph-spinner-gap animate-spin art-send-icon"
                                     :class="{ 'is-off': !submitting }"></i>
                                 <i class="ph-bold ph-paper-plane-right art-send-icon" :class="{ 'is-off': submitting }"></i>
@@ -698,20 +786,20 @@ watch(
                 </section>
             </div>
 
-            <aside class="art-detail-side">
-                <section class="art-side-group">
+            <aside id="reading-recommendations" class="art-detail-side">
+                <section v-for="group in sideGroups" :key="group.key" class="art-side-group">
                     <div class="art-detail-side-head">
-                        <h4 class="art-detail-side-title">精选文章</h4>
-                        <i class="ph-fill ph-push-pin art-side-group-icon"></i>
+                        <div><p class="reading-side-eyebrow">{{ group.key === 'recommend' ? '值得停留' : '此刻共读' }}</p><h4 class="art-detail-side-title">{{ group.title }}</h4></div>
+                        <i class="art-side-group-icon" :class="group.icon"></i>
                     </div>
                     <ul class="art-side-list">
-                        <li v-for="post in sideRecommend" :key="post.id">
-                            <button type="button" class="art-side-item" @click="openPost(post.id)">
+                        <li v-for="(post, index) in group.posts" :key="post.id">
+                            <button type="button" class="art-side-item" :class="{ 'is-current': String(post.id) === String(postId) }" :aria-current="String(post.id) === String(postId) ? 'page' : undefined" @click="openPost(post.id)">
                                 <span class="art-side-item-cover" aria-hidden="true">
                                     <img v-if="sideCover(post.coverImage) && !failedCovers.has(post.id)"
                                         :src="sideCover(post.coverImage)" alt="" loading="lazy"
                                         @error="failedCovers.add(post.id)">
-                                    <i v-else class="ph-light ph-note-pencil"></i>
+                                    <span v-else class="reading-side-number">{{ String(index + 1).padStart(2, '0') }}</span>
                                 </span>
                                 <span class="art-side-item-copy">
                                     <span class="art-side-item-title">{{ post.title || firstLine(post.content) || '无标题随笔' }}</span>
@@ -724,35 +812,7 @@ watch(
                                 <i class="ph-bold ph-arrow-up-right art-side-item-arrow" aria-hidden="true"></i>
                             </button>
                         </li>
-                        <li v-if="!sideRecommend.length" class="art-side-empty">还没有精选文章</li>
-                    </ul>
-                </section>
-                <section class="art-side-group">
-                    <div class="art-detail-side-head">
-                        <h4 class="art-detail-side-title">近期最热</h4>
-                        <i class="ph-bold ph-fire art-side-group-icon"></i>
-                    </div>
-                    <ul class="art-side-list">
-                        <li v-for="post in sideHot" :key="post.id">
-                            <button type="button" class="art-side-item" @click="openPost(post.id)">
-                                <span class="art-side-item-cover" aria-hidden="true">
-                                    <img v-if="sideCover(post.coverImage) && !failedCovers.has(post.id)"
-                                        :src="sideCover(post.coverImage)" alt="" loading="lazy"
-                                        @error="failedCovers.add(post.id)">
-                                    <i v-else class="ph-light ph-note-pencil"></i>
-                                </span>
-                                <span class="art-side-item-copy">
-                                    <span class="art-side-item-title">{{ post.title || firstLine(post.content) || '无标题随笔' }}</span>
-                                    <span class="art-side-item-meta">
-                                        <time v-if="post.createTime" :datetime="post.createTime">{{ post.createTime.slice(0, 10) }}</time>
-                                        <span class="art-side-item-view" title="点击量"><i class="ph-bold ph-eye"></i>
-                                            {{ post.viewCount || 0 }}</span>
-                                    </span>
-                                </span>
-                                <i class="ph-bold ph-arrow-up-right art-side-item-arrow" aria-hidden="true"></i>
-                            </button>
-                        </li>
-                        <li v-if="!sideHot.length" class="art-side-empty">暂无数据</li>
+                        <li v-if="!group.posts.length" class="art-side-empty">{{ group.empty }}</li>
                     </ul>
                 </section>
             </aside>
@@ -769,6 +829,65 @@ watch(
 </template>
 
 <style scoped>
+.reading-top-link, .reading-comment-caption, .reading-side-eyebrow,
+.reading-eyebrow, .reading-metadata, .reading-tags { display: none; }
+/* 手机端标题已经在顶栏上，正文不再重复一遍；桌面端顶栏只有返回来源，正文标题保留。 */
+.reading-heading { display: none; flex: none; padding: 22px 18px 0; }
+.reading-heading h1 { margin: 0; font-family: var(--art-serif); font-size: 24px; font-weight: 400; line-height: 1.55; color: var(--art-ink); overflow-wrap: anywhere; }
+.reading-back-label { text-align: left; cursor: pointer; }
+.detail-bar-title--back { display: none; }
+.reading-back-label:focus-visible { outline: 2px solid var(--art-accent); outline-offset: 4px; }
+.reading-comment-thread { display: flex; flex-direction: column; flex: 1 0 auto; min-height: 0; overflow-anchor: none; }
+/* 手机端固定顶部留位，不再用滚动进度反向改变滚动容器高度。 */
+.art-detail-page {
+    top: 74px;
+    height: calc(100dvh - 74px);
+}
+@media (min-width:1024px) and (prefers-reduced-motion: no-preference) {
+    .art-detail-page { transition: top .6s cubic-bezier(.4, 0, .6, 1), height .6s cubic-bezier(.4, 0, .6, 1); }
+}
+/* 桌面阅读外壳：单行工具栏常驻，完整标题与元信息随正文滚走。 */
+@media (min-width:1024px) {
+    .art-detail-page, :global(body.theme-light .art-detail-page) {
+        top: calc(74px - 62px * var(--nav-retreat, 0));
+        height: calc(100dvh - 74px + 62px * var(--nav-retreat, 0));
+        background: var(--reading-atmosphere), var(--art-bg);
+        background-attachment: fixed;
+        background-size: 100vw 100dvh;
+    }
+    .art-detail-page .art-detail-bar {
+        min-height: 52px; height: 52px; gap: 14px; padding: 0 22px;
+        background: transparent; border-bottom-color: transparent; backdrop-filter: none; -webkit-backdrop-filter: none;
+    }
+    .art-detail-bar .art-detail-tags, .art-detail-bar .art-detail-time--bar { display: none; }
+    .art-detail-bar .art-detail-title { font-size: 12px; letter-spacing: .05em; color: var(--art-ink-3); }
+    .detail-bar-title--post { display: none; }
+    .detail-bar-title--back { display: block; }
+    .reading-top-link {
+        display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+        padding: 8px 10px; font-size: 11px; letter-spacing: .06em; color: var(--art-ink-2);
+        border: 1px solid var(--art-line); border-radius: 6px; background: transparent; cursor: pointer;
+    }
+    .reading-top-link:hover { color: var(--art-accent); border-color: var(--art-accent); }
+    .reading-top-link:focus-visible { outline: 2px solid var(--art-accent); outline-offset: 3px; }
+    .art-detail-page .art-detail-stage { background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
+    .art-detail-page .reading-heading {
+        display: block; flex: none; width: 100%; max-width: 820px; margin: 0 auto;
+        padding: 38px 28px 24px;
+    }
+    .reading-eyebrow { display: flex; gap: 14px; margin: 0 0 20px; font-size: 10px; letter-spacing: .18em; color: var(--art-ink-3); }
+    .reading-eyebrow > span { color: var(--art-accent); opacity: .5; }
+    .reading-heading h1 { margin: 0 0 20px; font-family: var(--art-serif); font-size: clamp(26px, 2.6vw, 38px); font-weight: 400; line-height: 1.55; letter-spacing: .04em; color: var(--art-ink); overflow-wrap: anywhere; }
+    .reading-metadata, .reading-tags { display: flex; flex-wrap: wrap; gap: 10px 18px; font-size: 11px; line-height: 1.8; color: var(--art-ink-3); }
+    .reading-tags { margin-top: 13px; color: var(--art-ink-3); }
+    .art-detail-page .art-detail-desc { width: 100%; max-width: 820px; margin: 0 auto; padding: 24px 28px 40px; }
+    .art-detail-page #detailDescLabel { display: none; }
+    .art-detail-page .art-ai-summary { width: calc(100% - 56px); max-width: 764px; align-self: center; margin: 0 28px; }
+    .art-detail-page .art-reading-text :deep(.md-editor-preview) { font-size: 16px; line-height: 1.95; letter-spacing: .02em; }
+    .art-detail-page .art-reading-text :deep(.md-editor-preview :is(p, li, blockquote)) { line-height: 1.95; }
+    :global(body.theme-light .art-detail-page .art-detail-bar),
+    :global(body.theme-light .art-detail-page .art-detail-stage) { background: transparent; }
+}
 /* 抽屉 / 右侧栏 / 评论区容器的布局样式都在本文件底部（全局 style.css 未改动），此处只留 md-editor 目录树的深度覆写 */
 
 /* 隐藏目录组件自带的指示条 */
@@ -1285,17 +1404,17 @@ body.theme-light .art-side-item {
 @media (min-width:1024px) {
     /* 目录 + 把手 + 正文 + 固定宽度的右侧栏；目录宽度由 JS 写入 CSS 变量 */
     .art-detail-page .art-detail-body {
-        grid-template-columns: minmax(0, 1fr) 320px
+        grid-template-columns: minmax(0, 1fr) 280px
     }
 
     .art-detail-page .art-detail-body--with-catalog {
-        grid-template-columns: var(--art-detail-catalog-w, 220px) 8px minmax(0, 1fr) 320px;
+        grid-template-columns: var(--art-detail-catalog-w, 190px) 8px minmax(0, 1fr) 280px;
         column-gap: 0
     }
 
     /* 拖到 0 时真的收干净：内边距与滚动条都放在内层 */
     .art-detail-page .art-detail-catalog {
-        width: var(--art-detail-catalog-w, 220px);
+        width: var(--art-detail-catalog-w, 190px);
         min-width: 0;
         padding: 0;
         overflow: hidden
@@ -1304,7 +1423,7 @@ body.theme-light .art-side-item {
     .art-catalog-inner {
         width: 100%;
         /* 拖窄时保持原宽被裁掉，目录项不折行 */
-        min-width: 220px;
+        min-width: 190px;
         height: 100%;
         padding: 2px 10px 16px 4px;
         overflow-y: auto;
@@ -1397,7 +1516,7 @@ body.theme-light .art-side-item {
 @keyframes post-swap-in {
     from {
         opacity: 0;
-        transform: translateY(12px)
+        transform: translateY(20px)
     }
 
     to {
@@ -1407,24 +1526,36 @@ body.theme-light .art-side-item {
 }
 
 /* 只动顶栏与正文块、不动画板容器本身：stage 里挂着吸底输入区（sticky），整体 transform 会带着它一起位移 */
-/* 最扎眼的“瞬间感”来自顶栏标题（它在 stage 之外，原来完全没参与动效），所以这次带上顶栏一起淡入 */
-/* 缓动不再用 --art-ease：它是 expo-out，前 20% 就走完约 80% 的透明度，看着只闪了 200ms——把 .42s 拉到 .72s
-   也救不回来（两轮反馈都是“太快”）。换成全程均匀推进的曲线，0.7s 里透明度一直在变，才看得出是一次切换 */
+/* 最扎眼的“瞬间感”来自顶栏标题（它在 stage 之外，原来完全没参与动效），所以这次带上顶栏一起淡入；
+   顶栏是常驻元素，靠 postSwapSeq 换 key 才能每次换文章都重播（见 script 里的说明） */
+/* 缓动不用 --art-ease：它是 expo-out，前 20% 就走完约 80% 的透明度，看着只闪了 200ms；
+   换成全程均匀推进的曲线。时长从 .42s→.7s 仍然偏快（第三轮反馈“太快、过渡不明显”），
+   拉到 1.1s 并把位移从 12px 提到 20px，1.1s 里透明度和位移一直在变，切换才看得出是一次过渡 */
 .art-detail-page.is-post-swap > .art-detail-bar,
+.art-detail-page.is-post-swap .art-detail-stage > .reading-heading,
 .art-detail-page.is-post-swap .art-detail-stage > .art-detail-loading,
 .art-detail-page.is-post-swap .art-detail-stage > .art-detail-desc,
 .art-detail-page.is-post-swap .art-detail-stage > .art-detail-empty-stage {
     /* 不留填充态：动画收尾回到基础值（opacity 1 / transform none），正文不会长期挂着 transform */
-    animation: post-swap-in .7s cubic-bezier(.4, 0, .2, 1)
+    animation: post-swap-in 1.1s cubic-bezier(.4, 0, .2, 1)
 }
 
 @media (prefers-reduced-motion: reduce) {
 
     .art-detail-page.is-post-swap > .art-detail-bar,
+    .art-detail-page.is-post-swap .art-detail-stage > .reading-heading,
     .art-detail-page.is-post-swap .art-detail-stage > .art-detail-loading,
     .art-detail-page.is-post-swap .art-detail-stage > .art-detail-desc,
     .art-detail-page.is-post-swap .art-detail-stage > .art-detail-empty-stage {
         animation: none
+    }
+}
+
+/* 加载占位在 PC 上撑满一屏：换文章（或首屏加载）时评论区不会被上浮进视野，
+   否则加载那几百毫秒里会“闪到评论输入框”，正文回来后又跳回正文 */
+@media (min-width:1024px) {
+    .art-detail-page .art-detail-stage > .art-detail-loading {
+        min-height: 100%
     }
 }
 
@@ -1451,5 +1582,60 @@ body.theme-light .art-detail-comments-panel {
     .art-detail-page .art-detail-stage {
         flex: 1 0 auto
     }
+}
+/* 阅读辅助区：目录是轻线索，推荐是小卡片，评论衔接正文的收尾。 */
+@media (min-width:1024px) {
+    .art-detail-page { --reading-panel: #101e24; --reading-edge: rgba(139, 192, 200, .14); }
+    :global(body.theme-light .art-detail-page) { --reading-panel: #fff; --reading-edge: rgba(61, 103, 112, .15); }
+    .art-detail-page .art-catalog-inner { padding: 32px 14px 28px 4px; }
+    .reading-catalog-head { display: flex; justify-content: space-between; align-items: center; margin: 0 0 20px 12px; padding-bottom: 15px; border-bottom: 1px solid var(--reading-edge); color: var(--art-ink-2); font-size: 11px; letter-spacing: .16em; }
+    .reading-catalog-head > span:last-child { color: var(--art-ink-4); font: 10px var(--art-mono); letter-spacing: .06em; }
+    .art-detail-catalog :deep(.md-editor-catalog-link) { border-left: 1px solid var(--reading-edge); }
+    .art-detail-catalog :deep(.md-editor-catalog-link > span) { display: block; padding: 7px 10px; margin: 2px 0; border-left-width: 2px; border-radius: 0 7px 7px 0; font-size: 11px; line-height: 1.65; letter-spacing: .02em; }
+    .art-detail-catalog :deep(.md-editor-catalog-active > span) { background: color-mix(in srgb, var(--art-accent) 7%, transparent); color: var(--art-accent); }
+    .art-detail-catalog :deep(.md-editor-catalog-link > span:hover) { background: color-mix(in srgb, var(--art-accent) 4%, transparent); }
+    .art-detail-page .art-detail-side {
+        padding: 28px 0 28px 18px; gap: 18px; overflow-y: auto; overscroll-behavior: contain;
+        background: transparent; border-left: 0; backdrop-filter: none; -webkit-backdrop-filter: none;
+    }
+    .art-detail-page .art-detail-side .art-side-group {
+        flex: 0 0 auto; min-width: 0; border: 1px solid var(--reading-edge); border-radius: 16px;
+        background: color-mix(in srgb, var(--reading-panel) 70%, transparent);
+    }
+    .art-detail-side .art-side-group > .art-detail-side-head { padding: 20px 18px 14px; border: 0; gap: 10px; }
+    .reading-side-eyebrow { display: block; margin: 0 0 8px; color: var(--art-ink-4); font-size: 9px; letter-spacing: .16em; }
+    .art-detail-side .art-detail-side-title { font-family: var(--art-serif); font-size: 15px; font-weight: 400; letter-spacing: .06em; }
+    .art-side-group-icon { padding: 9px; border-radius: 50%; background: color-mix(in srgb, var(--art-accent) 6%, transparent); font-size: 12px; }
+    .art-detail-page .art-side-group .art-side-list { flex: none; overflow: visible; padding: 0 10px 10px; }
+    .art-detail-side .art-side-item { gap: 11px; padding: 13px 8px; border-radius: 10px; border: 1px solid transparent; }
+    .art-detail-side .art-side-list li + li { border-top: 1px solid var(--reading-edge); }
+    .art-detail-side .art-side-item-cover { width: 42px; height: 48px; flex: 0 0 42px; border: 0; border-radius: 7px; background: linear-gradient(145deg, color-mix(in srgb, var(--art-accent) 8%, transparent), transparent); }
+    .reading-side-number { font-family: var(--art-serif); font-size: 23px; font-style: italic; color: var(--art-ink-4); }
+    .art-detail-side .art-side-item-title { font-size: 12px; line-height: 1.8; font-weight: 400; }
+    .art-detail-side .art-side-item-meta { margin-top: 5px; font-size: 9px; gap: 8px; }
+    .art-detail-side .art-side-item-arrow { font-size: 10px; opacity: .5; }
+    .art-detail-side .art-side-item:hover, .art-detail-side .art-side-item.is-current { background: color-mix(in srgb, var(--art-accent) 5%, transparent); border-color: var(--reading-edge); }
+    .art-detail-side .art-side-item.is-current .art-side-item-title { color: var(--art-accent); }
+    .art-detail-page .art-detail-stage > .art-detail-comments-panel {
+        --comment-fill: color-mix(in srgb, var(--art-bg) 91%, #8da8ad);
+        flex: 0 0 auto; width: calc(100% - 56px); max-width: 700px; margin: 8px auto 56px;
+        border: 0; border-radius: 6px; background: var(--comment-fill); box-shadow: none;
+    }
+    .art-detail-comments-panel > .art-detail-side-head { padding: 24px 28px 12px; align-items: center; border: 0; }
+    .art-detail-comments-panel .art-detail-side-title { font-family: var(--art-serif); font-size: 17px; font-weight: 400; letter-spacing: .06em; color: var(--art-ink); }
+    .reading-comment-caption { display: block; margin: 6px 0 0; font-size: 11px; line-height: 1.8; letter-spacing: .02em; color: var(--art-ink-3); }
+    .art-detail-comments-panel .reading-comment-thread { flex: none; }
+    /* 保留空状态的 80px 留白 + 18px 行高 + 28px 上间距，首条短评论也不能收窄默认高度。 */
+    .art-detail-comments-panel .art-detail-comments { flex: none; min-height: 126px; overflow: visible; padding: 0 28px; }
+    .art-detail-comments-panel .art-comment { padding: 18px 0; gap: 12px; }
+    .art-detail-comments-panel .art-comment-avatar { width: 28px; height: 28px; }
+    .art-detail-comments-panel .art-comment-head { flex-wrap: wrap; gap: 6px 12px; }
+    .art-detail-comments-panel .art-comment-text { font-size: 13px; line-height: 1.9; }
+    .art-detail-comments-panel .art-empty { padding: 40px 8px; font-size: 12px; color: var(--art-ink-3); }
+    .art-detail-comments-panel .art-detail-compose { padding: 14px 28px 10px; background: var(--comment-fill); border: 0; border-radius: 0 0 6px 6px; }
+    .art-detail-comments-panel .art-detail-compose-head { margin-bottom: 22px; }
+    .art-detail-comments-panel .art-detail-input { min-width: 0; background: color-mix(in srgb, var(--art-bg) 72%, transparent); border: 1px solid var(--reading-edge); border-radius: 6px; }
+    .art-detail-comments-panel .art-send { border-radius: 6px; }
+    .art-detail-comments-panel .art-detail-side-foot { padding: 12px 28px; border: 0; }
 }
 </style>

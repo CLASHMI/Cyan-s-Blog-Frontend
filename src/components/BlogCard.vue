@@ -130,7 +130,7 @@ async function toggleRecommend() {
   try {
     const data = await request(`/blog/recommend/${props.post.id}`, { method: 'POST' })
     props.post.isRecommend = data.isRecommend
-    uiStore.showToast(data.isRecommend === 1 ? '已设为站长精选' : '已取消精选')
+    uiStore.showToast(data.isRecommend === 1 ? '已设为精选' : '已取消精选')
   } catch (e) {
   } finally {
     recommendPending.value = false

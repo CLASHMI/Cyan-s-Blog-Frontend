@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { copyText } from './utils/clipboard'
 
 import AppNavbar from './components/AppNavbar.vue'
+import CursorParticles from './components/CursorParticles.vue'
 import MuseStage from './components/MuseStage.vue'
 import SettingDialog from './components/SettingDialog.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
@@ -24,6 +25,7 @@ const isDetail = computed(() => route.path.startsWith('/post/'))
 const isHome = computed(() => route.path === '/')
 
 const mainView = ref(null)
+const navRetreat = ref(0)
 /* ---------------- 点按 / 悬停反馈：统一用 data-fx 属性驱动 ----------------
    桌面：鼠标进入加、离开去；触屏：按下加，短暂停留后自动去掉。
    用 data-fx 而不是 class —— 这些按钮多是 RouterLink，路由一变 Vue 会重写 class 属性，
@@ -78,7 +80,7 @@ function finishPageEntry(el) {
   releaseView(el)
   journalEntryHandoff.value = false
 }
-const leavingRects = new WeakMap()
+const leavingSnapshots = new WeakMap()
 const leavingViews = new Set()
 
 /* 离场视图在场时暂停看板娘渲染：状态通过 prop 交给 MuseStage */
@@ -87,16 +89,22 @@ const routePaused = ref(false)
 function syncRoutePaused() {
   routePaused.value = leavingViews.size > 0
 }
-watch(() => route.path, () => {
+watch(() => route.path, (path, previousPath) => {
   if (route.path !== '/blog') journalEntryHandoff.value = false
   // pre watcher 在布局更新前取尺寸；before-leave 时首页容器已变成内容区。
   const el = mainView.value?.firstElementChild
-  if (el) leavingRects.set(el, el.getBoundingClientRect())
+  if (el) leavingSnapshots.set(el, {
+    rect: el.getBoundingClientRect(),
+    coveredByDetail: previousPath?.startsWith('/post/') === true,
+  })
 })
 
 /* 离场视图固定在原位，滚动复位时不跳 */
 function freezeLeavingView(el) {
-  const rect = leavingRects.get(el) || el.getBoundingClientRect()
+  const snapshot = leavingSnapshots.get(el)
+  const rect = snapshot?.rect || el.getBoundingClientRect()
+  // The retained page was covered by the detail overlay; do not reveal it on exit.
+  if (snapshot?.coveredByDetail) el.style.visibility = 'hidden'
   el.style.position = 'fixed'
   el.style.top = `${Math.round(rect.top)}px`
   el.style.left = `${Math.round(rect.left)}px`
@@ -109,7 +117,8 @@ function freezeLeavingView(el) {
 }
 
 function releaseView(el) {
-  leavingRects.delete(el)
+  leavingSnapshots.delete(el)
+  el.style.visibility = ''
   el.style.position = ''
   el.style.top = ''
   el.style.left = ''
@@ -188,15 +197,9 @@ async function copyFooterInfo(text, okMsg = '已复制') {
 
   <div v-show="!isHome" class="art-glow" aria-hidden="true"></div>
 
-  <!-- 背景漂浮的青色光团：缓慢漂移，营造一点意识流的感觉 -->
-  <div v-show="!isHome" class="art-ambient" aria-hidden="true">
-      <span class="art-blob art-blob-a"></span>
-      <span class="art-blob art-blob-b"></span>
-      <span class="art-blob art-blob-c"></span>
-  </div>
-
-  <div class="art-shell cyan-shell" :class="{ 'art-shell--detail': isDetail, 'cyan-shell--home': isHome }">
-    <AppNavbar />
+  <div class="art-shell cyan-shell" :style="{ '--nav-retreat': navRetreat }" :class="{ 'art-shell--detail': isDetail, 'cyan-shell--home': isHome }">
+    <div v-if="isDetail" class="reading-backdrop" aria-hidden="true"></div>
+    <AppNavbar @retreat-change="navRetreat = $event" />
 
     <main ref="mainView" class="art-main">
         <router-view v-slot="{ Component, route }">
@@ -276,6 +279,7 @@ async function copyFooterInfo(text, okMsg = '已复制') {
   <ConfirmDialog />
 
   <MuseStage :route-paused="routePaused" />
+  <CursorParticles />
 
   <!-- 全局回到顶部：下滑超过 400px 才浮出 -->
   <Transition name="fade">
@@ -289,6 +293,27 @@ async function copyFooterInfo(text, okMsg = '已复制') {
 </template>
 
 <style scoped>
+/* 全屏背景与阅读浮层共用同一幅静态薄雾，导航保持透明，无独立色板。 */
+.art-glow, .cyan-shell {
+  --reading-atmosphere:
+    radial-gradient(ellipse at 16% 0%, color-mix(in srgb, var(--art-accent) 5%, transparent), transparent 48%),
+    radial-gradient(ellipse at 94% 35%, rgba(116, 135, 165, .065), transparent 55%);
+}
+/* 详情保留底层列表；背景必须覆盖整个视口，包括透明导航下的 74px。 */
+.reading-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  pointer-events: none;
+  background: var(--reading-atmosphere), var(--art-bg);
+}
+.art-glow.art-glow {
+  background: var(--reading-atmosphere), var(--art-bg);
+}
+@media (min-width:1024px) {
+  .cyan-shell:not(.cyan-shell--home) > .art-main { padding-top: 12px; }
+}
+
 /* 进出场重叠淡化；不对根视图做 transform，避免改变内部 fixed / sticky 的定位。 */
 .page-fade-enter-active {
   transition: opacity .46s cubic-bezier(.22, 1, .36, 1) .06s;

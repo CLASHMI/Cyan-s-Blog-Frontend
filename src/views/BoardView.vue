@@ -48,7 +48,7 @@ async function loadComments(postId = 0, page = 1) {
             currentCommentPage.value = page
             commentTotal.value = total
             totalCommentPages.value = totalPages
-            commentsStatusMessage.value = records.length ? '' : '未找到相关评论。'
+            commentsStatusMessage.value = records.length ? '' : '这里空空如也哦。'
             await nextTick()
         }
         if (document.startViewTransition) document.startViewTransition(applyComments)
