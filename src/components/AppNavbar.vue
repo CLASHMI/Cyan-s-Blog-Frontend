@@ -664,13 +664,16 @@ onUnmounted(() => {
 
 /* —— ④ 歌单：最多同时 5 首（每行 32px），其余滚动 —— */
 /* 高度动画由外层裁剪；列表本身必须保留 overflow-y:auto，否则会被这里的 hidden 覆盖、滚不动 */
-.cy-m-list-reveal { display: grid; grid-template-rows: 1fr; overflow: hidden; }
-.cy-m-list-reveal .cy-m-list { min-height: 0; }
+/* 轨道必须用 minmax(0,…)：裸 1fr 的最小值是内容尺寸，会被列表的 padding+border 卡在 7px，
+   末端再被 display:none 一次性抹掉，看起来就是收起最后卡一下 */
+.cy-m-list-reveal { display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; margin-top: -7px }
+/* 上面那 -7px 抵消容器 gap，把这段间距挪进轨道里（列表 margin-top），收起时才会随轨道一起归零 */
+.cy-m-list-reveal .cy-m-list { min-height: 0; margin-top: 7px }
 /* 展开 / 收起走高度动画（0fr → 1fr），和站内其它折叠区同一套做法 */
 .cy-m-list-enter-active,
 .cy-m-list-leave-active { transition: grid-template-rows .34s cubic-bezier(.22, 1, .36, 1), opacity .26s ease; }
 .cy-m-list-enter-from,
-.cy-m-list-leave-to { grid-template-rows: 0fr; opacity: 0; }
+.cy-m-list-leave-to { grid-template-rows: minmax(0, 0fr); opacity: 0; }
 .cy-m-list {
   list-style: none;
   margin: 0;
