@@ -828,6 +828,13 @@ watch(
     animation-delay: 128ms
 }
 
+/* 悬停：全局那条是 1.18，偏大，这里收到 1.1 */
+@media (hover: hover) and (pointer: fine) {
+    .art-star:hover {
+        transform: scale(1.1)
+    }
+}
+
 /* 按下（包括再点一次取消）时先缩一下，保证任何一次点击都有反馈 */
 .art-star:active {
     transform: scale(.92);
