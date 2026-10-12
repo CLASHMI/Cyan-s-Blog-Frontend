@@ -1393,7 +1393,8 @@ body.theme-light .art-side-item {
 .art-detail-stage.is-post-swap > .art-detail-desc,
 .art-detail-stage.is-post-swap > .art-detail-empty-stage {
     /* 不留填充态：动画收尾回到基础值（opacity 1 / transform none），正文不会长期挂着 transform */
-    animation: post-swap-in .42s var(--art-ease)
+    /* .72s：换文章本身是可感知的内容切换，太快会像直接闪出来（.42s 被反馈太快） */
+    animation: post-swap-in .72s var(--art-ease)
 }
 
 @media (prefers-reduced-motion: reduce) {
