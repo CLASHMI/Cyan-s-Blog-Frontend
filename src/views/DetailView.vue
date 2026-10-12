@@ -9,7 +9,7 @@ import { generateSvgAvatar, useAuthStore } from '@/stores/useAuthStore'
 import { useCategoryStore } from '@/stores/useCategoryStore'
 import { appliedLightMode, useUiStore } from '@/stores/useUiStore'
 import { SystemConstant } from '@/utils/constants'
-import { request } from '@/utils/request'
+import { apiBase, request } from '@/utils/request'
 import { tagHue } from '@/utils/tagColor'
 import { firstLine } from '@/utils/text'
 
@@ -187,6 +187,25 @@ function openPost(id) {
   if (id === null || id === undefined) return
   router.push('/post/' + id)
 }
+
+/* 侧栏卡片封面：与随笔页“最近更新”同一套解析规则，相对路径补成后端地址 */
+function sideCover(value) {
+  if (!value) return ''
+  let cover = String(value).trim()
+  if (cover.startsWith('[')) {
+    try {
+      cover = JSON.parse(cover).find((item) => typeof item === 'string' && item.trim()) || ''
+    } catch {
+      return ''
+    }
+  }
+  if (!cover || /\.(mp4|webm|mov)(?:[?#]|$)/i.test(cover)) return ''
+  if (/^https?:\/\//i.test(cover)) return cover
+  return cover.startsWith('/') && !cover.startsWith('//') ? apiBase + cover : ''
+}
+
+/* 封面加载失败就退回图标占位，避免破图 */
+const failedCovers = ref(new Set())
 
 const commentPageInfo = computed(
   () => `第 ${currentCommentPage.value} / ${totalCommentPages.value} 页`,
@@ -661,9 +680,21 @@ watch(
                     <ul class="art-side-list">
                         <li v-for="post in sideRecommend" :key="post.id">
                             <button type="button" class="art-side-item" @click="openPost(post.id)">
-                                <span class="art-side-item-title">{{ post.title || firstLine(post.content) || '无标题随笔' }}</span>
-                                <span class="art-side-item-meta" title="点击量"><i class="ph-bold ph-eye"></i>
-                                    {{ post.viewCount || 0 }}</span>
+                                <span class="art-side-item-cover" aria-hidden="true">
+                                    <img v-if="sideCover(post.coverImage) && !failedCovers.has(post.id)"
+                                        :src="sideCover(post.coverImage)" alt="" loading="lazy"
+                                        @error="failedCovers.add(post.id)">
+                                    <i v-else class="ph-light ph-note-pencil"></i>
+                                </span>
+                                <span class="art-side-item-copy">
+                                    <span class="art-side-item-title">{{ post.title || firstLine(post.content) || '无标题随笔' }}</span>
+                                    <span class="art-side-item-meta">
+                                        <time v-if="post.createTime" :datetime="post.createTime">{{ post.createTime.slice(0, 10) }}</time>
+                                        <span class="art-side-item-view" title="点击量"><i class="ph-bold ph-eye"></i>
+                                            {{ post.viewCount || 0 }}</span>
+                                    </span>
+                                </span>
+                                <i class="ph-bold ph-arrow-up-right art-side-item-arrow" aria-hidden="true"></i>
                             </button>
                         </li>
                         <li v-if="!sideRecommend.length" class="art-side-empty">还没有精选文章</li>
@@ -677,9 +708,21 @@ watch(
                     <ul class="art-side-list">
                         <li v-for="post in sideHot" :key="post.id">
                             <button type="button" class="art-side-item" @click="openPost(post.id)">
-                                <span class="art-side-item-title">{{ post.title || firstLine(post.content) || '无标题随笔' }}</span>
-                                <span class="art-side-item-meta" title="点击量"><i class="ph-bold ph-eye"></i>
-                                    {{ post.viewCount || 0 }}</span>
+                                <span class="art-side-item-cover" aria-hidden="true">
+                                    <img v-if="sideCover(post.coverImage) && !failedCovers.has(post.id)"
+                                        :src="sideCover(post.coverImage)" alt="" loading="lazy"
+                                        @error="failedCovers.add(post.id)">
+                                    <i v-else class="ph-light ph-note-pencil"></i>
+                                </span>
+                                <span class="art-side-item-copy">
+                                    <span class="art-side-item-title">{{ post.title || firstLine(post.content) || '无标题随笔' }}</span>
+                                    <span class="art-side-item-meta">
+                                        <time v-if="post.createTime" :datetime="post.createTime">{{ post.createTime.slice(0, 10) }}</time>
+                                        <span class="art-side-item-view" title="点击量"><i class="ph-bold ph-eye"></i>
+                                            {{ post.viewCount || 0 }}</span>
+                                    </span>
+                                </span>
+                                <i class="ph-bold ph-arrow-up-right art-side-item-arrow" aria-hidden="true"></i>
                             </button>
                         </li>
                         <li v-if="!sideHot.length" class="art-side-empty">暂无数据</li>
@@ -1004,7 +1047,8 @@ watch(
 
 /* ============ 本轮 PC 端功能新增（只作用于本组件，全局 style.css 未改动） ============ */
 
-/* ---- 右侧栏：精选文章 / 近期最热 ---- */
+/* ---- 右侧栏：精选文章 / 近期最热（PC 端上下平分，各自内部滚动） ---- */
+/* 分段容器：头部固定，列表吃掉半区内剩余高度 */
 .art-side-group {
     flex: 0 0 auto;
     border-bottom: 1px solid var(--art-line)
@@ -1023,15 +1067,15 @@ watch(
     list-style: none
 }
 
+/* 列表项就是一张图文小卡片：封面 + 标题日期 + 右上箭头 */
 .art-side-item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
     width: 100%;
-    padding: 8px 10px;
+    padding: 8px;
     border: 1px solid transparent;
-    border-radius: 10px;
+    border-radius: 12px;
     background: transparent;
     color: var(--art-ink-2);
     font-family: inherit;
@@ -1042,23 +1086,67 @@ watch(
     transition: color .3s ease, border-color .3s ease, background-color .3s ease
 }
 
-.art-side-item-title {
+/* 封面：正方形、圆角、cover 裁切；没封面时退回渐变底 + 图标 */
+.art-side-item-cover {
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    border: 1px solid var(--art-line);
+    border-radius: 10px;
+    background: linear-gradient(140deg, rgba(0, 255, 255, .09), rgba(0, 255, 255, .01));
+    color: var(--art-ink-3);
+    font-size: 18px
+}
+
+.art-side-item-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .5s
+}
+
+.art-side-item-copy {
+    display: flex;
     flex: 1 1 auto;
     min-width: 0;
+    flex-direction: column;
+    gap: 6px
+}
+
+/* 标题最多两行，超出省略 */
+.art-side-item-title {
+    display: -webkit-box;
     overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow-wrap: anywhere;
+    font-weight: 500
 }
 
 .art-side-item-meta {
-    flex: 0 0 auto;
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 10px;
     color: var(--art-ink-4);
     font-family: var(--art-mono);
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: .04em
+}
+
+.art-side-item-view {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px
+}
+
+.art-side-item-arrow {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: var(--art-ink-4);
+    transition: color .3s ease, transform .3s ease
 }
 
 .art-side-empty {
@@ -1081,6 +1169,16 @@ body.theme-light .art-side-item {
     color: var(--art-ink);
     border-color: var(--art-line);
     background: rgba(255, 255, 255, .03)
+}}
+
+/* 悬停时箭头往右上挑一下，封面轻微放大 */
+@media (hover: hover) and (pointer: fine){.art-side-item:hover .art-side-item-arrow{
+    color: var(--art-accent);
+    transform: translate(2px, -2px)
+}}
+
+@media (hover: hover) and (pointer: fine){.art-side-item:hover .art-side-item-cover img{
+    transform: scale(1.06)
 }}
 
 @media (hover: hover) and (pointer: fine){body.theme-light .art-side-item:hover{
@@ -1149,9 +1247,27 @@ body.theme-light .art-side-item {
         background: var(--art-accent)
     }
 
-    /* 两个列表可能比一屏长，侧栏自己滚 */
+    /* 侧栏整列不滚：两个半区各占 50%，超出部分只在自己区内滚 */
     .art-detail-page .art-detail-side {
-        overflow-y: auto
+        overflow: hidden
+    }
+
+    .art-detail-page .art-side-group {
+        flex: 1 1 50%;
+        min-height: 0;
+        display: flex;
+        flex-direction: column
+    }
+
+    .art-detail-page .art-detail-side-head {
+        flex: 0 0 auto
+    }
+
+    .art-detail-page .art-side-list {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain
     }
 }
 
