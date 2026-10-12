@@ -252,7 +252,16 @@ function goBack() {
   else router.push('/blog')
 }
 
-async function loadDetail(id) {
+/* 同一组件换文章：点击瞬间先淡入加载态，新正文落地后再收尾（首次进入由外层 fade-slide 负责） */
+const postSwapping = ref(false)
+let swapTimer = 0
+
+function endPostSwapSoon() {
+  clearTimeout(swapTimer)
+  swapTimer = window.setTimeout(() => { postSwapping.value = false }, 620)
+}
+
+async function loadDetail(id, animateSwap = false) {
   if (id === null || id === undefined) return
   const seq = ++detailSeq
   loadingDetail.value = true
@@ -265,7 +274,10 @@ async function loadDetail(id) {
     detail.value = null
     detailError.value = '这条内容不存在或已被删除。'
   } finally {
-    if (seq === detailSeq) loadingDetail.value = false
+    if (seq === detailSeq) {
+      loadingDetail.value = false
+      if (animateSwap) endPostSwapSoon()
+    }
   }
 }
 
@@ -483,6 +495,7 @@ watch(
 )
 
 onUnmounted(() => {
+  clearTimeout(swapTimer)
   if (endResize) endResize()
   summarySeq += 1
   stopSummaryTyping()
@@ -492,7 +505,10 @@ onUnmounted(() => {
 /* 路由按 path 重建组件，这里顺带兜住同组件换 id 的情况 */
 watch(
   postId,
-  (id) => {
+  (id, prevId) => {
+    /* 换文章（而非首次进入）：点击的瞬间就让加载态淡入 */
+    const switching = !!prevId && prevId !== id
+    postSwapping.value = switching
     detail.value = null
     detailError.value = ''
     catalogList.value = []
@@ -501,7 +517,7 @@ watch(
     if (scrollElement.value) scrollElement.value.scrollTop = 0
     setRating(0)
     commentInput.value = ''
-    loadDetail(id)
+    loadDetail(id, switching)
     loadComments(id, 1)
   },
   { immediate: true },
@@ -550,7 +566,8 @@ watch(
             <button v-if="hasCatalog" type="button" class="art-detail-grip" :class="{ 'is-dragging': resizing }"
                 @pointerdown="startCatalogResize" title="拖动调整目录宽度" aria-label="拖动调整目录宽度"></button>
 
-            <div id="detail-scroll-container" class="art-detail-stage" @scroll.passive="onDetailScroll">
+            <div id="detail-scroll-container" class="art-detail-stage" :class="{ 'is-post-swap': postSwapping }"
+                @scroll.passive="onDetailScroll">
                 <!-- 详情未回来前用等高占位撑住画板，避免结构先塌后撑 -->
                 <div v-if="loadingDetail" class="art-detail-loading">
                     <i class="ph-bold ph-spinner-gap animate-spin"></i>
@@ -1364,6 +1381,35 @@ body.theme-light .art-side-item {
     .art-detail-catalog,
     .art-detail-grip {
         display: none
+    }
+}
+
+/* ---- 换文章（PC / 手机同一套）：加载态与新的正文各自淡入一次 ---- */
+@keyframes post-swap-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px)
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0)
+    }
+}
+
+/* 只动正文块、不动画板容器本身：stage 里挂着吸底输入区（sticky），整体 transform 会带着它一起位移 */
+.art-detail-stage.is-post-swap > .art-detail-loading,
+.art-detail-stage.is-post-swap > .art-detail-desc,
+.art-detail-stage.is-post-swap > .art-detail-empty-stage {
+    animation: post-swap-in .42s var(--art-ease) both
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .art-detail-stage.is-post-swap > .art-detail-loading,
+    .art-detail-stage.is-post-swap > .art-detail-desc,
+    .art-detail-stage.is-post-swap > .art-detail-empty-stage {
+        animation: none
     }
 }
 
