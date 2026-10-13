@@ -270,6 +270,8 @@ async function submitCategory() {
     uiStore.showToast('分类已保存')
     formCatName.value = ''
     formCatId.value = ''
+    /* 改名会影响随笔卡片与「已使用标签」，通知 keep-alive 的随笔页重拉 */
+    uiStore.refreshPosts()
     categoryStore.loadCategories()
     loadAdminCategories()
   } catch (e) {}
@@ -280,8 +282,14 @@ function editCategory(category) {
   formCatName.value = category.name
 }
 
+/* 点了「修改」后表单停在编辑态，得能一键回到新增，否则只能刷新页面 */
+function clearCategoryForm() {
+  formCatId.value = ''
+  formCatName.value = ''
+}
+
 function deleteCategory(id) {
-  uiStore.openConfirm('确定删除此分类吗？如果已有随笔使用该分类将导致失败。', async () => {
+  uiStore.openConfirm('确定删除此分类吗？', async () => {
     try {
       await request(`/category/delete/${id}`, { method: 'DELETE' })
       uiStore.showToast('分类已删除')
@@ -357,6 +365,8 @@ async function submitTag() {
     uiStore.showToast('标签已保存')
     formTagName.value = ''
     formTagId.value = ''
+    /* 同上：标签改名后随笔卡片标签与「已使用标签」都要跟着更新 */
+    uiStore.refreshPosts()
     loadTags()
     loadAdminTags()
   } catch (e) {}
@@ -367,8 +377,14 @@ function editTag(tag) {
   formTagName.value = tag.name
 }
 
+/* 同分类：编辑后一键切回新增态 */
+function clearTagForm() {
+  formTagId.value = ''
+  formTagName.value = ''
+}
+
 function deleteTag(id) {
-  uiStore.openConfirm('确定删除此标签吗？关联随笔的标签将一并移除。', async () => {
+  uiStore.openConfirm('确定删除此标签吗', async () => {
     try {
       await request(`/tag/delete/${id}`, { method: 'DELETE' })
       uiStore.showToast('标签已删除')
@@ -582,6 +598,8 @@ onUnmounted(() => {
               <div class="art-panel-head">
                   <h3 class="art-panel-title-lg">分类管理<span id="adminCategoryCount"
                           class="art-panel-count">{{ categoryCountText }}</span></h3>
+                  <button @click="clearCategoryForm" class="art-btn art-btn-sm art-btn-ghost"><i
+                          class="ph-bold ph-plus"></i> 新增分类</button>
               </div>
 
               <div class="art-cat-toolbar">
@@ -679,6 +697,8 @@ onUnmounted(() => {
               <div class="art-panel-head">
                   <h3 class="art-panel-title-lg">标签管理<span id="adminTagCount"
                           class="art-panel-count">{{ tagCountText }}</span></h3>
+                  <button @click="clearTagForm" class="art-btn art-btn-sm art-btn-ghost"><i
+                          class="ph-bold ph-plus"></i> 新增标签</button>
               </div>
 
               <div class="art-cat-toolbar">
