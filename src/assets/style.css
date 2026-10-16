@@ -3878,7 +3878,9 @@ body.theme-light .art-card-rating.is-empty {
 }
 
 .art-admin-active {
-    flex: 1 1 200px;
+    /* 不给基座：这行在桌面是横排（基座＝多占点宽度，靠 grow 拉满剩余空间），
+       在手机端容器是竖排、基座会变成“高度”，方块会被撑成 200px 的一段空墙 */
+    flex: 1 1 auto;
     display: flex;
     align-items: center;
     justify-content: center;
