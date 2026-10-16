@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 
 import { request, setUnauthorizedHandler } from "@/utils/request";
 import { SystemConstant } from "@/utils/constants";
+import { md5Hex } from "@/utils/md5";
 
 const { Role } = SystemConstant;
 
@@ -140,9 +141,10 @@ export const useAuthStore = defineStore("auth", {
     },
 
     async loginAdmin(password) {
+      /* 密钥不裸奔：网络里只送 MD5 十六进制，后端拿它比对配置里的 BCrypt 值 */
       const data = await request("/admin/login", {
         method: "POST",
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password: md5Hex(password) }),
       });
       this.saveSession(data.token, data.userInfo);
     },
