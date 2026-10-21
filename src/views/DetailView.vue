@@ -48,6 +48,8 @@ function onDetailScroll(event) {
 
 /* 随笔目录监听左栏滚动容器（模板 ref 直接指向 #detail-scroll-container），用于高亮当前标题 */
 const scrollElement = ref(null)
+/* 目录自己的滚动容器：文章滚动时把当前激活项带回可视区 */
+const catalogInnerEl = ref(null)
 onMounted(loadSidePosts)
 
 function scrollDetailTop() {
@@ -149,6 +151,34 @@ function onGetCatalog(list) {
   }
 }
 
+/* 默认标题 id 只取标题文本，重复标题会共享同一个锚点，目录激活项也会卡在第一次出现的位置 */
+function detailHeadingId({ level, index }) {
+  return `art-reading-heading-${level}-${index}`
+}
+
+/* 激活项进入目录上下留白范围时，平滑滚动到目录中间；用户手动浏览目录时不额外干预 */
+function keepCatalogActiveVisible(_item, node) {
+  const scroller = catalogInnerEl.value
+  if (!(node instanceof HTMLElement) || !scroller?.contains(node)) return
+
+  const edge = 20
+  const scrollerRect = scroller.getBoundingClientRect()
+  const nodeRect = node.getBoundingClientRect()
+  const outside =
+    nodeRect.top < scrollerRect.top + edge || nodeRect.bottom > scrollerRect.bottom - edge
+  if (!outside) return
+
+  const target =
+    scroller.scrollTop +
+    nodeRect.top -
+    scrollerRect.top -
+    (scroller.clientHeight - node.offsetHeight) / 2
+  scroller.scrollTo({
+    top: Math.max(0, target),
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+  })
+}
+
 /* ---------------- 目录列宽拖拽（右侧栏宽度固定，不参与拖拽） ---------------- */
 const CATALOG_MAX_W = 340
 /* 正文保底宽度：拖到极限时目录被压到 0，也不会把正文挤没 */
@@ -195,6 +225,7 @@ function startCatalogResize(event) {
 /* ---------------- 右侧栏数据：精选（后端随机 5 篇）与近期最热 ---------------- */
 const sideRecommend = ref([])
 const sideHot = ref([])
+const sideLoading = ref(true)
 
 async function loadSidePosts() {
   const hotUrl = `/blog/list?sortStrategy=${SystemConstant.SortStrategy.HOTTEST}&pageNum=1&pageSize=5`
@@ -208,6 +239,8 @@ async function loadSidePosts() {
   } catch (e) {
     sideRecommend.value = []
     sideHot.value = []
+  } finally {
+    sideLoading.value = false
   }
 }
 
@@ -640,10 +673,10 @@ watch(
             :style="{ '--art-detail-catalog-w': catalogWidth + 'px' }" @scroll.passive="onDetailScroll">
             <!-- 目录列（仅 PC）：没提取到目录时不占列，左侧完全留白 -->
             <section v-if="hasCatalog" class="art-detail-catalog">
-                <div class="art-catalog-inner">
+                <div ref="catalogInnerEl" class="art-catalog-inner">
                     <div class="reading-catalog-head"><span>文章目录</span><span>{{ catalogList.length.toString().padStart(2, '0') }}</span></div>
                     <MdCatalog :key="catalogKey" editor-id="blog-preview-id" :scroll-element="scrollElement"
-                        :theme="mdTheme" />
+                        :theme="mdTheme" :md-heading-id="detailHeadingId" @onActive="keepCatalogActiveVisible" />
                 </div>
             </section>
             <button v-if="hasCatalog" type="button" class="art-detail-grip" :class="{ 'is-dragging': resizing }"
@@ -699,7 +732,7 @@ watch(
                         </p>
                         <div id="detailContent" class="art-article-typography art-reading-text">
                             <MdPreview editor-id="blog-preview-id" :modelValue="detail.content || ''"
-                                :theme="mdTheme" @onGetCatalog="onGetCatalog" />
+                                :theme="mdTheme" :md-heading-id="detailHeadingId" @onGetCatalog="onGetCatalog" />
                         </div>
                     </div>
                     <div v-if="showEmptyStage" class="art-detail-empty-stage">
@@ -792,28 +825,43 @@ watch(
                         <div><p class="reading-side-eyebrow">{{ group.key === 'recommend' ? '值得停留' : '此刻共读' }}</p><h4 class="art-detail-side-title">{{ group.title }}</h4></div>
                         <i class="art-side-group-icon" :class="group.icon"></i>
                     </div>
-                    <ul class="art-side-list">
-                        <li v-for="(post, index) in group.posts" :key="post.id">
-                            <button type="button" class="art-side-item" :class="{ 'is-current': String(post.id) === String(postId) }" :aria-current="String(post.id) === String(postId) ? 'page' : undefined" @click="openPost(post.id)">
-                                <span class="art-side-item-cover" aria-hidden="true">
-                                    <img v-if="sideCover(post.coverImage) && !failedCovers.has(post.id)"
-                                        :src="sideCover(post.coverImage)" alt="" loading="lazy"
-                                        @error="failedCovers.add(post.id)">
-                                    <span v-else class="reading-side-number">{{ String(index + 1).padStart(2, '0') }}</span>
-                                </span>
-                                <span class="art-side-item-copy">
-                                    <span class="art-side-item-title">{{ post.title || firstLine(post.content) || '无标题随笔' }}</span>
-                                    <span class="art-side-item-meta">
-                                        <time v-if="post.createTime" :datetime="post.createTime">{{ post.createTime.slice(0, 10) }}</time>
-                                        <span class="art-side-item-view" title="点击量"><i class="ph-bold ph-eye"></i>
-                                            {{ post.viewCount || 0 }}</span>
+                    <Transition name="side-reveal" mode="out-in">
+                        <ul :key="sideLoading ? 'loading' : 'loaded'" class="art-side-list"
+                            :aria-busy="sideLoading">
+                            <template v-if="sideLoading">
+                                <li v-for="index in 4" :key="`skeleton-${index}`" class="art-side-skeleton"
+                                    aria-hidden="true">
+                                    <span class="art-side-skeleton-cover"></span>
+                                    <span class="art-side-skeleton-copy">
+                                        <span class="art-side-skeleton-line"></span>
+                                        <span class="art-side-skeleton-line is-short"></span>
                                     </span>
-                                </span>
-                                <i class="ph-bold ph-arrow-up-right art-side-item-arrow" aria-hidden="true"></i>
-                            </button>
-                        </li>
-                        <li v-if="!group.posts.length" class="art-side-empty">{{ group.empty }}</li>
-                    </ul>
+                                </li>
+                            </template>
+                            <template v-else>
+                                <li v-for="(post, index) in group.posts" :key="post.id">
+                                    <button type="button" class="art-side-item" :class="{ 'is-current': String(post.id) === String(postId) }" :aria-current="String(post.id) === String(postId) ? 'page' : undefined" @click="openPost(post.id)">
+                                        <span class="art-side-item-cover" aria-hidden="true">
+                                            <img v-if="sideCover(post.coverImage) && !failedCovers.has(post.id)"
+                                                :src="sideCover(post.coverImage)" alt="" loading="lazy"
+                                                @error="failedCovers.add(post.id)">
+                                            <span v-else class="reading-side-number">{{ String(index + 1).padStart(2, '0') }}</span>
+                                        </span>
+                                        <span class="art-side-item-copy">
+                                            <span class="art-side-item-title">{{ post.title || firstLine(post.content) || '无标题随笔' }}</span>
+                                            <span class="art-side-item-meta">
+                                                <time v-if="post.createTime" :datetime="post.createTime">{{ post.createTime.slice(0, 10) }}</time>
+                                                <span class="art-side-item-view" title="点击量"><i class="ph-bold ph-eye"></i>
+                                                    {{ post.viewCount || 0 }}</span>
+                                            </span>
+                                        </span>
+                                        <i class="ph-bold ph-arrow-up-right art-side-item-arrow" aria-hidden="true"></i>
+                                    </button>
+                                </li>
+                                <li v-if="!group.posts.length" class="art-side-empty">{{ group.empty }}</li>
+                            </template>
+                        </ul>
+                    </Transition>
                 </section>
             </aside>
         </div>
@@ -1258,6 +1306,16 @@ watch(
     .art-star.is-on {
         animation: none
     }
+
+    .art-side-skeleton-cover,
+    .art-side-skeleton-line {
+        animation: none
+    }
+
+    .side-reveal-enter-active,
+    .side-reveal-leave-active {
+        transition: none
+    }
 }
 
 /* ============ 本轮 PC 端功能新增（只作用于本组件，全局 style.css 未改动） ============ */
@@ -1369,6 +1427,63 @@ watch(
     color: var(--art-ink-4);
     font-size: 12px;
     text-align: center
+}
+
+/* 右侧栏先以稳定骨架占位，数据回来后整组轻微上浮淡入，避免两段内容突然跳出 */
+.art-side-skeleton {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 13px 8px;
+    list-style: none
+}
+
+.art-side-skeleton-cover {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 48px;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--art-ink-4) 8%, transparent);
+    animation: side-skeleton-pulse 1.4s ease-in-out infinite alternate
+}
+
+.art-side-skeleton-copy {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 9px
+}
+
+.art-side-skeleton-line {
+    width: 88%;
+    height: 9px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--art-ink-4) 8%, transparent);
+    animation: side-skeleton-pulse 1.4s ease-in-out infinite alternate
+}
+
+.art-side-skeleton-line.is-short {
+    width: 48%;
+    height: 7px
+}
+
+.side-reveal-enter-active,
+.side-reveal-leave-active {
+    transition: opacity .34s ease, transform .34s cubic-bezier(.4, 0, .2, 1)
+}
+
+.side-reveal-enter-from {
+    opacity: 0;
+    transform: translateY(8px)
+}
+
+.side-reveal-leave-to {
+    opacity: 0;
+    transform: translateY(-4px)
+}
+
+@keyframes side-skeleton-pulse {
+    to { opacity: .42 }
 }
 
 .art-side-group-icon {
