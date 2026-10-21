@@ -37,8 +37,6 @@ const DETAIL_TOP_THRESHOLD = 160
 const DETAIL_BOTTOM_HIDE_GAP = 80
 const detailBodyEl = ref(null)
 const showDetailTop = ref(false)
-/* 目录标题只在正文回到最顶部时出现，不依赖目录自身是否发生滚动 */
-const catalogHeadVisible = ref(true)
 
 /* 移动端滚的是 .art-detail-body，桌面端滚动容器是左侧舞台，两个都监听同一套逻辑 */
 function onDetailScroll(event) {
@@ -47,7 +45,7 @@ function onDetailScroll(event) {
   showDetailTop.value =
     scroller.scrollTop > DETAIL_TOP_THRESHOLD && remaining > DETAIL_BOTTOM_HIDE_GAP
   if (event.currentTarget === scrollElement.value) {
-    catalogHeadVisible.value = scroller.scrollTop <= 1
+    syncCatalogScroll(scroller)
   }
 }
 
@@ -153,6 +151,9 @@ function onGetCatalog(list) {
   if (sign !== lastCatalogSign) {
     lastCatalogSign = sign
     catalogKey.value += 1
+    nextTick(() => {
+      if (catalogInnerEl.value) catalogInnerEl.value.scrollTop = 0
+    })
   }
 }
 
@@ -161,27 +162,20 @@ function detailHeadingId({ level, index }) {
   return `art-reading-heading-${level}-${index}`
 }
 
-/* 激活项进入目录上下留白范围时，平滑滚动到目录中间；用户手动浏览目录时不额外干预 */
-function keepCatalogActiveVisible(_item, node) {
-  const scroller = catalogInnerEl.value
-  if (!(node instanceof HTMLElement) || !scroller?.contains(node)) return
+/* 目录随正文滚动进度同步下移：初始保留“文章目录”，正文下滚时标题自然滚出，末尾目录停在最下方 */
+function syncCatalogScroll(articleScroller) {
+  const catalog = catalogInnerEl.value
+  if (!articleScroller || !catalog) return
 
-  const edge = 20
-  const scrollerRect = scroller.getBoundingClientRect()
-  const nodeRect = node.getBoundingClientRect()
-  const outside =
-    nodeRect.top < scrollerRect.top + edge || nodeRect.bottom > scrollerRect.bottom - edge
-  if (!outside) return
+  const articleMax = articleScroller.scrollHeight - articleScroller.clientHeight
+  const catalogMax = catalog.scrollHeight - catalog.clientHeight
+  if (articleMax <= 0 || catalogMax <= 0) {
+    catalog.scrollTop = 0
+    return
+  }
 
-  const target =
-    scroller.scrollTop +
-    nodeRect.top -
-    scrollerRect.top -
-    (scroller.clientHeight - node.offsetHeight) / 2
-  scroller.scrollTo({
-    top: Math.max(0, target),
-    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-  })
+  const progress = Math.min(1, Math.max(0, articleScroller.scrollTop / articleMax))
+  catalog.scrollTop = progress * catalogMax
 }
 
 /* ---------------- 目录列宽拖拽（右侧栏宽度固定，不参与拖拽） ---------------- */
@@ -629,7 +623,7 @@ watch(
     /* 从侧栏列表换一篇是同一个组件实例，正文的滚动位置要手动归零 */
     if (detailBodyEl.value) detailBodyEl.value.scrollTop = 0
     if (scrollElement.value) scrollElement.value.scrollTop = 0
-    catalogHeadVisible.value = true
+    if (catalogInnerEl.value) catalogInnerEl.value.scrollTop = 0
     setRating(0)
     commentInput.value = ''
     loadDetail(id)
@@ -680,12 +674,9 @@ watch(
             <!-- 目录列（仅 PC）：没提取到目录时不占列，左侧完全留白 -->
             <section v-if="hasCatalog" class="art-detail-catalog">
                 <div ref="catalogInnerEl" class="art-catalog-inner">
-                    <div class="reading-catalog-head" :class="{ 'is-visible': catalogHeadVisible }"
-                        :aria-hidden="!catalogHeadVisible">
-                        <span>文章目录</span><span>{{ catalogList.length.toString().padStart(2, '0') }}</span>
-                    </div>
+                    <div class="reading-catalog-head"><span>文章目录</span><span>{{ catalogList.length.toString().padStart(2, '0') }}</span></div>
                     <MdCatalog :key="catalogKey" editor-id="blog-preview-id" :scroll-element="scrollElement"
-                        :theme="mdTheme" :md-heading-id="detailHeadingId" @onActive="keepCatalogActiveVisible" />
+                        :theme="mdTheme" :md-heading-id="detailHeadingId" />
                 </div>
             </section>
             <button v-if="hasCatalog" type="button" class="art-detail-grip" :class="{ 'is-dragging': resizing }"
@@ -1712,16 +1703,7 @@ body.theme-light .art-detail-comments-panel {
     .art-detail-page { --reading-panel: #101e24; --reading-edge: rgba(139, 192, 200, .14); }
     :global(body.theme-light .art-detail-page) { --reading-panel: #fff; --reading-edge: rgba(61, 103, 112, .15); }
     .art-detail-page .art-catalog-inner { padding: 32px 14px 28px 4px; }
-    .reading-catalog-head {
-        display: flex; justify-content: space-between; align-items: center; margin: 0 0 20px 12px; padding-bottom: 15px;
-        border-bottom: 1px solid var(--reading-edge); color: var(--art-ink-2); font-size: 11px; letter-spacing: .16em;
-        opacity: 0; visibility: hidden; transform: translateY(-8px); pointer-events: none;
-        transition: opacity .22s ease, transform .28s cubic-bezier(.4, 0, .2, 1), visibility 0s linear .28s;
-    }
-    .reading-catalog-head.is-visible {
-        opacity: 1; visibility: visible; transform: none; pointer-events: auto;
-        transition-delay: 0s;
-    }
+    .reading-catalog-head { display: flex; justify-content: space-between; align-items: center; margin: 0 0 20px 12px; padding-bottom: 15px; border-bottom: 1px solid var(--reading-edge); color: var(--art-ink-2); font-size: 11px; letter-spacing: .16em; }
     .reading-catalog-head > span:last-child { color: var(--art-ink-4); font: 10px var(--art-mono); letter-spacing: .06em; }
     .art-detail-catalog :deep(.md-editor-catalog-link) { border-left: 1px solid var(--reading-edge); }
     .art-detail-catalog :deep(.md-editor-catalog-link > span) { display: block; padding: 7px 10px; margin: 2px 0; border-left-width: 2px; border-radius: 0 7px 7px 0; font-size: 11px; line-height: 1.65; letter-spacing: .02em; }
@@ -1772,7 +1754,4 @@ body.theme-light .art-detail-comments-panel {
     .art-detail-comments-panel .art-detail-side-foot { padding: 12px 28px; border: 0; }
 }
 
-@media (min-width:1024px) and (prefers-reduced-motion: reduce) {
-    .reading-catalog-head { transition: none; }
-}
 </style>
